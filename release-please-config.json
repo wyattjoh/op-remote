@@ -3,7 +3,14 @@
   "packages": {
     ".": {
       "package-name": "@wyattjoh/op-remote",
-      "release-type": "node"
+      "release-type": "node",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": ".claude-plugin/plugin.json",
+          "jsonpath": "$.version"
+        }
+      ]
     }
   }
 }
