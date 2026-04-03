@@ -2,9 +2,9 @@
 
 ## Overview
 
-`op-remote` is a Go CLI tool that enables remote approval of 1Password secret access via Telegram. It acts as a bridge between Claude Code (or other AI agents) and 1Password secrets, ensuring secrets never cross the boundary back to the calling agent.
+`op-remote` is a Bun/TypeScript CLI tool that enables remote approval of 1Password secret access via Telegram. It acts as a bridge between Claude Code (or other AI agents) and 1Password secrets, ensuring secrets never cross the boundary back to the calling agent.
 
-The tool operates in two modes from a single binary:
+The tool operates in two modes from a single npm package (`@wyattjoh/op-remote`):
 - **`op-remote serve`**: MCP server that holds resolved secrets in memory and gates access via Telegram approval
 - **`op-remote run`**: CLI that requests secrets from the running MCP server and injects them into a subprocess
 
@@ -305,31 +305,47 @@ stdout/stderr of the subprocess are scanned. Any occurrence of a resolved secret
 | MCP server crash | Socket cleaned up, tokens invalidated. CLI gets connection error. |
 | Stale socket from previous crash | Server checks for stale socket on startup (try connect, if refused, unlink and recreate) |
 
+## Tech Stack
+
+- **Runtime:** Bun (TypeScript)
+- **Distribution:** npm package `@wyattjoh/op-remote`, invoked via `bunx`/`npx`/`pnpm dlx`
+- **MCP SDK:** `@modelcontextprotocol/sdk` (official TypeScript SDK)
+- **Telegram:** Raw `fetch` to Bot API (only 4-5 endpoints needed)
+- **Unix sockets:** `node:net` module
+- **Process execution:** `Bun.spawn` or `node:child_process`
+- **Env file parsing:** Custom parser (simple key=value format)
+
 ## Project Structure
 
 ```
 op-remote/
-├── cmd/
-│   └── op-remote/
-│       └── main.go          # CLI entrypoint, subcommand routing
-├── internal/
+├── src/
+│   ├── cli.ts               # CLI entrypoint, subcommand routing
 │   ├── serve/
-│   │   ├── server.go        # MCP server, tool handlers, state management
-│   │   ├── socket.go        # Unix socket listener, token validation, protocol
-│   │   └── telegram.go      # Telegram bot API, approval flow, long polling
+│   │   ├── server.ts         # MCP server, tool handlers, state management
+│   │   ├── socket.ts         # Unix socket listener, token validation, protocol
+│   │   └── telegram.ts       # Telegram bot API, approval flow, long polling
 │   ├── run/
-│   │   ├── client.go        # Socket client, sends request, receives response
-│   │   ├── envfile.go       # .env.tpl parser, extracts op:// references
-│   │   └── exec.go          # Subprocess launch, env merging, secret masking
-│   └── protocol/
-│       └── protocol.go      # Shared types: Request, Response, status codes
-├── go.mod
-├── go.sum
-└── .goreleaser.yaml
+│   │   ├── client.ts         # Socket client, sends request, receives response
+│   │   ├── envfile.ts        # .env.tpl parser, extracts op:// references
+│   │   └── exec.ts           # Subprocess launch, env merging, secret masking
+│   └── protocol.ts           # Shared types: Request, Response, status codes
+├── test/
+│   ├── envfile.test.ts       # Env file parser tests
+│   ├── token.test.ts         # Token store tests
+│   ├── masking.test.ts       # Secret masking tests
+│   └── socket.test.ts        # Socket protocol tests
+├── package.json
+├── tsconfig.json
+└── biome.json
 ```
 
-### Dependencies
+### Invocation
 
-- MCP server SDK for Go (or hand-rolled JSON-RPC over stdio)
-- Lightweight Telegram bot library (or raw HTTP to Bot API)
-- Standard library for everything else (Unix sockets, JSON, process exec, `crypto/rand`)
+```bash
+# MCP server (in .mcp.json)
+op run --env-file .env.tpl -- bunx @wyattjoh/op-remote serve
+
+# CLI
+bunx @wyattjoh/op-remote run --token=... --sock=... --env-file=.env.tpl --reason="..." -- npm test
+```
