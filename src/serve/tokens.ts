@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 export class TokenStore {
-  private tokens = new Map<string, number>();
+  private tokens = new Map<string, { expiry: number; reserved: boolean }>();
   private ttlMs: number;
 
   constructor(ttlMs: number) {
@@ -10,20 +10,49 @@ export class TokenStore {
 
   create(): string {
     const token = randomUUID();
-    this.tokens.set(token, Date.now() + this.ttlMs);
+    this.tokens.set(token, { expiry: Date.now() + this.ttlMs, reserved: false });
     return token;
   }
 
   validate(token: string): boolean {
-    const expiry = this.tokens.get(token);
-    if (expiry === undefined) {
+    const entry = this.tokens.get(token);
+    if (!entry) {
       return false;
     }
-    if (Date.now() > expiry) {
+    if (Date.now() > entry.expiry) {
       this.tokens.delete(token);
       return false;
     }
     return true;
+  }
+
+  /**
+   * Atomically validate and reserve a token. Returns true if the token was
+   * valid and not already reserved. A reserved token cannot be reserved again,
+   * preventing concurrent use of the same token.
+   */
+  reserve(token: string): boolean {
+    const entry = this.tokens.get(token);
+    if (!entry) {
+      return false;
+    }
+    if (Date.now() > entry.expiry) {
+      this.tokens.delete(token);
+      return false;
+    }
+    if (entry.reserved) {
+      return false;
+    }
+    entry.reserved = true;
+    return true;
+  }
+
+  /** Release a previously reserved token so it can be reserved again. */
+  release(token: string): void {
+    const entry = this.tokens.get(token);
+    if (entry) {
+      entry.reserved = false;
+    }
   }
 
   consume(token: string): boolean {

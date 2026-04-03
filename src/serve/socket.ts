@@ -4,6 +4,9 @@ import { type Socket as NetSocket, createServer } from "node:net";
 import type { SocketRequest, SocketResponse } from "../protocol.ts";
 import type { TokenStore } from "./tokens.ts";
 
+/** Maximum allowed request payload size (1 MiB). */
+const MAX_REQUEST_BYTES = 1024 * 1024;
+
 export interface SocketHandler {
   handleRequest(req: SocketRequest): Promise<SocketResponse>;
 }
@@ -55,7 +58,15 @@ export function createSocketServer(
 
 function handleConnection(conn: NetSocket, tokens: TokenStore, handler: SocketHandler): void {
   const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
   let responded = false;
+
+  const reject = (reason: string) => {
+    if (responded) return;
+    responded = true;
+    const res: SocketResponse = { status: "rejected", reason };
+    conn.end(JSON.stringify(res));
+  };
 
   const respond = async () => {
     if (responded) return;
@@ -64,8 +75,8 @@ function handleConnection(conn: NetSocket, tokens: TokenStore, handler: SocketHa
       const raw = Buffer.concat(chunks).toString("utf-8");
       const req = JSON.parse(raw) as SocketRequest;
 
-      // Validate token (single-use).
-      if (!tokens.consume(req.token)) {
+      // Atomically reserve the token (prevents concurrent use).
+      if (!tokens.reserve(req.token)) {
         const res: SocketResponse = {
           status: "rejected",
           reason: "invalid or expired token",
@@ -78,8 +89,16 @@ function handleConnection(conn: NetSocket, tokens: TokenStore, handler: SocketHa
       // node:net doesn't expose SO_PEERCRED on macOS, so we rely on
       // socket file permissions (0600) as the primary guard.
 
-      const response = await handler.handleRequest(req);
-      conn.end(JSON.stringify(response));
+      try {
+        const response = await handler.handleRequest(req);
+        // Permanently consume the token after success.
+        tokens.consume(req.token);
+        conn.end(JSON.stringify(response));
+      } catch (err) {
+        // Release the reservation so the token can be retried.
+        tokens.release(req.token);
+        throw err;
+      }
     } catch (err) {
       const res: SocketResponse = {
         status: "rejected",
@@ -90,6 +109,14 @@ function handleConnection(conn: NetSocket, tokens: TokenStore, handler: SocketHa
   };
 
   conn.on("data", (chunk: Uint8Array) => {
+    totalBytes += chunk.length;
+
+    if (totalBytes > MAX_REQUEST_BYTES) {
+      reject("request too large");
+      conn.destroy();
+      return;
+    }
+
     chunks.push(chunk);
     // Attempt to parse immediately after each chunk so the response can be
     // sent before the client half-closes the connection. This is necessary
@@ -97,7 +124,7 @@ function handleConnection(conn: NetSocket, tokens: TokenStore, handler: SocketHa
     const raw = Buffer.concat(chunks).toString("utf-8");
     try {
       JSON.parse(raw);
-      // Valid JSON received — respond now without waiting for client FIN.
+      // Valid JSON received, respond now without waiting for client FIN.
       void respond();
     } catch {
       // Incomplete JSON; wait for more data.

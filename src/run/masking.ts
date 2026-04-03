@@ -3,11 +3,14 @@ function escapeRegExp(s: string): string {
 }
 
 export function createMasker(secrets: string[]): (input: string) => string {
-  if (secrets.length === 0) {
+  // Filter out empty strings to avoid a regex that matches every position.
+  const filtered = secrets.filter((s) => s.length > 0);
+
+  if (filtered.length === 0) {
     return (input) => input;
   }
 
-  const pattern = new RegExp(secrets.map(escapeRegExp).join("|"), "g");
+  const pattern = new RegExp(filtered.map(escapeRegExp).join("|"), "g");
 
   return (input: string) => input.replace(pattern, "<redacted>");
 }

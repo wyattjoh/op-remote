@@ -10,6 +10,7 @@ interface ServerConfig {
   telegramBotToken: string;
   telegramChatId: string;
   timeoutMs: number;
+  telegramApproverIds: number[];
 }
 
 function readConfig(): ServerConfig {
@@ -25,7 +26,15 @@ function readConfig(): ServerConfig {
 
   const timeoutMs = Number.parseInt(process.env.REMOTE_OP_TIMEOUT ?? "120", 10) * 1000;
 
-  return { telegramBotToken: botToken, telegramChatId: chatId, timeoutMs };
+  const approverIdsRaw = process.env.REMOTE_OP_TELEGRAM_APPROVER_IDS ?? "";
+  const telegramApproverIds = approverIdsRaw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .map(Number)
+    .filter((n) => !Number.isNaN(n));
+
+  return { telegramBotToken: botToken, telegramChatId: chatId, timeoutMs, telegramApproverIds };
 }
 
 export async function startServer(): Promise<void> {
@@ -54,6 +63,7 @@ export async function startServer(): Promise<void> {
           botToken: config.telegramBotToken,
           chatId: config.telegramChatId,
           timeoutMs: config.timeoutMs,
+          approverIds: config.telegramApproverIds,
         };
 
         const result = await requestRunApproval(telegramConfig, {
@@ -145,6 +155,7 @@ export async function startServer(): Promise<void> {
         botToken: config.telegramBotToken,
         chatId: config.telegramChatId,
         timeoutMs: config.timeoutMs,
+        approverIds: config.telegramApproverIds,
       };
 
       const result = await requestResumeApproval(telegramConfig);
