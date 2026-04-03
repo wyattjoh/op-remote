@@ -1,6 +1,6 @@
 ---
 name: op-remote
-description: "Guides usage of the op-remote MCP server for running commands with 1Password secrets. Triggers when op-remote:request_token tool is available, when running commands that need secrets from .env.tpl, or when encountering \"op-remote\", \"secret access\", \"op://\"."
+description: 'Guides usage of the op-remote MCP server for running commands with 1Password secrets. Triggers when op-remote:request_token tool is available, when running commands that need secrets from .env.tpl, or when encountering "op-remote", "secret access", "op://".'
 user-invocable: true
 ---
 

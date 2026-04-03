@@ -5,6 +5,7 @@
 `op-remote` is a Bun/TypeScript CLI tool that enables remote approval of 1Password secret access via Telegram. It acts as a bridge between Claude Code (or other AI agents) and 1Password secrets, ensuring secrets never cross the boundary back to the calling agent.
 
 The tool operates in two modes from a single npm package (`@wyattjoh/op-remote`):
+
 - **`op-remote serve`**: MCP server that holds resolved secrets in memory and gates access via Telegram approval
 - **`op-remote run`**: CLI that requests secrets from the running MCP server and injects them into a subprocess
 
@@ -102,6 +103,7 @@ op-remote run \
 ```
 
 **Flow:**
+
 1. Parse `--env-file`: extract env var names where value starts with `op://`
 2. Connect to Unix socket at `--sock`
 3. Send JSON request: `{token, env_vars, command, cwd, reason}`
@@ -136,17 +138,18 @@ op-remote run \
 
 ### MCP Tools
 
-| Tool | Arguments | Behavior |
-|------|-----------|----------|
-| `request_token` | none | If stopped: return error instructing agent to stop and wait for user instructions. Otherwise: generate single-use token (UUID, TTL default 120s), return `{token, sock}` |
-| `resume` | none | If not stopped: return "session is not stopped". Otherwise: send Telegram approval request. On approve: set `stopped = false`, return confirmation. On reject: keep `stopped = true`, return rejection with reason. |
-| `disable_auto_approve` | none | Sets `autoApprove = false`. Returns confirmation. |
+| Tool                   | Arguments | Behavior                                                                                                                                                                                                            |
+| ---------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `request_token`        | none      | If stopped: return error instructing agent to stop and wait for user instructions. Otherwise: generate single-use token (UUID, TTL default 120s), return `{token, sock}`                                            |
+| `resume`               | none      | If not stopped: return "session is not stopped". Otherwise: send Telegram approval request. On approve: set `stopped = false`, return confirmation. On reject: keep `stopped = true`, return rejection with reason. |
+| `disable_auto_approve` | none      | Sets `autoApprove = false`. Returns confirmation.                                                                                                                                                                   |
 
 `resume` and `disable_auto_approve` should only be invoked when the user explicitly asks.
 
 ### Socket Protocol
 
 **Request (CLI to server):**
+
 ```json
 {
   "token": "abc123-...",
@@ -158,6 +161,7 @@ op-remote run \
 ```
 
 **Server validation:**
+
 1. Token exists, not expired, not already used. Invalidate immediately.
 2. Peer UID matches server UID (defense in depth).
 3. All requested env var names exist in server's environment.
@@ -165,6 +169,7 @@ op-remote run \
 **Response (server to CLI):**
 
 Approved:
+
 ```json
 {
   "status": "approved",
@@ -176,6 +181,7 @@ Approved:
 ```
 
 Rejected:
+
 ```json
 {
   "status": "rejected",
@@ -220,12 +226,12 @@ Agent is requesting to resume the session.
 
 ### Button Behaviors
 
-| Button | Effect | Appears on |
-|--------|--------|-----------|
-| Approve | Resolve secrets, send to CLI. Edit message to show "Approved at HH:MM" | Run, Resume |
-| Reject | Prompt user for rejection reason (force reply). Send reason to CLI. Edit message to show "Rejected: reason" | Run, Resume |
-| Auto-Approve | Set `autoApprove = true`, then same as Approve. Edit message to show "Auto-approved at HH:MM" | Run only |
-| Stop | Set `stopped = true`, then same as Reject (prompt for reason). Edit message to show "Stopped: reason" | Run only |
+| Button       | Effect                                                                                                      | Appears on  |
+| ------------ | ----------------------------------------------------------------------------------------------------------- | ----------- |
+| Approve      | Resolve secrets, send to CLI. Edit message to show "Approved at HH:MM"                                      | Run, Resume |
+| Reject       | Prompt user for rejection reason (force reply). Send reason to CLI. Edit message to show "Rejected: reason" | Run, Resume |
+| Auto-Approve | Set `autoApprove = true`, then same as Approve. Edit message to show "Auto-approved at HH:MM"               | Run only    |
+| Stop         | Set `stopped = true`, then same as Reject (prompt for reason). Edit message to show "Stopped: reason"       | Run only    |
 
 ### Timeout
 
@@ -265,13 +271,13 @@ stdout/stderr of the subprocess are scanned. Any occurrence of a resolved secret
 
 ### Trust Boundaries
 
-| Boundary | Protection |
-|----------|-----------|
-| MCP server process memory | Secrets only exist here. Never sent over MCP stdio. |
-| Unix socket | 0600 permissions, peer UID verification, single-use tokens |
-| Token lifecycle | UUID, single-use, TTL (default 120s), invalidated on first use |
-| Telegram | Chat ID validation on callback queries, nonce in callback_data, connect-on-demand only |
-| Subprocess | Secrets in env vars only, masked on stdout/stderr |
+| Boundary                  | Protection                                                                             |
+| ------------------------- | -------------------------------------------------------------------------------------- |
+| MCP server process memory | Secrets only exist here. Never sent over MCP stdio.                                    |
+| Unix socket               | 0600 permissions, peer UID verification, single-use tokens                             |
+| Token lifecycle           | UUID, single-use, TTL (default 120s), invalidated on first use                         |
+| Telegram                  | Chat ID validation on callback queries, nonce in callback_data, connect-on-demand only |
+| Subprocess                | Secrets in env vars only, masked on stdout/stderr                                      |
 
 ### What Claude Code Sees
 
@@ -294,16 +300,16 @@ stdout/stderr of the subprocess are scanned. Any occurrence of a resolved secret
 
 ### Threat Model
 
-| Threat | Mitigation |
-|--------|-----------|
-| Agent exfiltrates secrets from stdout | Secret masking on CLI output |
-| Agent calls `resume` to bypass Stop | `resume` requires Telegram approval |
-| Rogue process connects to socket | Needs valid token (only mintable via MCP) + peer UID check |
-| Token replay | Single-use, invalidated immediately |
-| Telegram account compromise | Chat ID validation, accepted risk |
-| Telegram downtime | Timeout rejects, agent gets clear error |
-| MCP server crash | Socket cleaned up, tokens invalidated. CLI gets connection error. |
-| Stale socket from previous crash | Server checks for stale socket on startup (try connect, if refused, unlink and recreate) |
+| Threat                                | Mitigation                                                                               |
+| ------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Agent exfiltrates secrets from stdout | Secret masking on CLI output                                                             |
+| Agent calls `resume` to bypass Stop   | `resume` requires Telegram approval                                                      |
+| Rogue process connects to socket      | Needs valid token (only mintable via MCP) + peer UID check                               |
+| Token replay                          | Single-use, invalidated immediately                                                      |
+| Telegram account compromise           | Chat ID validation, accepted risk                                                        |
+| Telegram downtime                     | Timeout rejects, agent gets clear error                                                  |
+| MCP server crash                      | Socket cleaned up, tokens invalidated. CLI gets connection error.                        |
+| Stale socket from previous crash      | Server checks for stale socket on startup (try connect, if refused, unlink and recreate) |
 
 ## Tech Stack
 

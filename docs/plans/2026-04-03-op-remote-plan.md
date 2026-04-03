@@ -15,6 +15,7 @@
 ### Task 1: Project Scaffolding
 
 **Files:**
+
 - Create: `package.json`
 - Create: `tsconfig.json`
 - Create: `biome.json`
@@ -107,17 +108,17 @@ Create `src/cli.ts`:
 const [subcommand] = process.argv.slice(2);
 
 switch (subcommand) {
-	case "serve":
-		console.error("serve: not yet implemented");
-		process.exit(1);
-		break;
-	case "run":
-		console.error("run: not yet implemented");
-		process.exit(1);
-		break;
-	default:
-		console.error("Usage: op-remote <serve|run>");
-		process.exit(1);
+  case "serve":
+    console.error("serve: not yet implemented");
+    process.exit(1);
+    break;
+  case "run":
+    console.error("run: not yet implemented");
+    process.exit(1);
+    break;
+  default:
+    console.error("Usage: op-remote <serve|run>");
+    process.exit(1);
 }
 ```
 
@@ -143,6 +144,7 @@ git commit -m "feat: scaffold op-remote project with Bun"
 ### Task 2: Protocol Types
 
 **Files:**
+
 - Create: `src/protocol.ts`
 
 - [ ] **Step 1: Write protocol types**
@@ -152,24 +154,24 @@ Create `src/protocol.ts`:
 ```typescript
 /** Sent by the CLI to the MCP server over the Unix socket. */
 export interface SocketRequest {
-	token: string;
-	envVars: string[];
-	command: string[];
-	cwd: string;
-	reason: string;
+  token: string;
+  envVars: string[];
+  command: string[];
+  cwd: string;
+  reason: string;
 }
 
 /** Sent by the MCP server back to the CLI over the Unix socket. */
 export interface SocketResponse {
-	status: "approved" | "rejected";
-	env?: Record<string, string>;
-	reason?: string;
+  status: "approved" | "rejected";
+  env?: Record<string, string>;
+  reason?: string;
 }
 
 /** Returned by the request_token MCP tool. */
 export interface TokenResult {
-	token: string;
-	sock: string;
+  token: string;
+  sock: string;
 }
 
 /** Exit codes for the CLI. */
@@ -197,6 +199,7 @@ git commit -m "feat: add shared protocol types for socket communication"
 ### Task 3: Env File Parser (TDD)
 
 **Files:**
+
 - Create: `src/run/envfile.ts`
 - Create: `test/envfile.test.ts`
 
@@ -209,70 +212,64 @@ import { describe, expect, test } from "bun:test";
 import { parseEnvFile } from "../src/run/envfile.ts";
 
 describe("parseEnvFile", () => {
-	test("extracts op:// references as secret vars", () => {
-		const content = [
-			'CLERK_API_KEY="op://AI Enablement/Clerk/key"',
-			'APP_ID="op://Development/app/id"',
-		].join("\n");
+  test("extracts op:// references as secret vars", () => {
+    const content = [
+      'CLERK_API_KEY="op://AI Enablement/Clerk/key"',
+      'APP_ID="op://Development/app/id"',
+    ].join("\n");
 
-		const result = parseEnvFile(content);
+    const result = parseEnvFile(content);
 
-		expect(result.secretVars).toEqual([
-			"CLERK_API_KEY",
-			"APP_ID",
-		]);
-		expect(result.plainVars).toEqual({});
-	});
+    expect(result.secretVars).toEqual(["CLERK_API_KEY", "APP_ID"]);
+    expect(result.plainVars).toEqual({});
+  });
 
-	test("extracts plain vars separately", () => {
-		const content = [
-			"APP_URL=https://example.com",
-			'SECRET="op://Dev/item/field"',
-		].join("\n");
+  test("extracts plain vars separately", () => {
+    const content = ["APP_URL=https://example.com", 'SECRET="op://Dev/item/field"'].join("\n");
 
-		const result = parseEnvFile(content);
+    const result = parseEnvFile(content);
 
-		expect(result.secretVars).toEqual(["SECRET"]);
-		expect(result.plainVars).toEqual({ APP_URL: "https://example.com" });
-	});
+    expect(result.secretVars).toEqual(["SECRET"]);
+    expect(result.plainVars).toEqual({ APP_URL: "https://example.com" });
+  });
 
-	test("skips comments and blank lines", () => {
-		const content = [
-			"# this is a comment",
-			"",
-			"  # indented comment",
-			'KEY="op://Vault/item/field"',
-		].join("\n");
+  test("skips comments and blank lines", () => {
+    const content = [
+      "# this is a comment",
+      "",
+      "  # indented comment",
+      'KEY="op://Vault/item/field"',
+    ].join("\n");
 
-		const result = parseEnvFile(content);
+    const result = parseEnvFile(content);
 
-		expect(result.secretVars).toEqual(["KEY"]);
-		expect(result.plainVars).toEqual({});
-	});
+    expect(result.secretVars).toEqual(["KEY"]);
+    expect(result.plainVars).toEqual({});
+  });
 
-	test("handles unquoted values", () => {
-		const content = "KEY=op://Vault/item/field";
-		const result = parseEnvFile(content);
-		expect(result.secretVars).toEqual(["KEY"]);
-	});
+  test("handles unquoted values", () => {
+    const content = "KEY=op://Vault/item/field";
+    const result = parseEnvFile(content);
+    expect(result.secretVars).toEqual(["KEY"]);
+  });
 
-	test("handles single-quoted values", () => {
-		const content = "KEY='op://Vault/item/field'";
-		const result = parseEnvFile(content);
-		expect(result.secretVars).toEqual(["KEY"]);
-	});
+  test("handles single-quoted values", () => {
+    const content = "KEY='op://Vault/item/field'";
+    const result = parseEnvFile(content);
+    expect(result.secretVars).toEqual(["KEY"]);
+  });
 
-	test("handles export prefix", () => {
-		const content = 'export KEY="op://Vault/item/field"';
-		const result = parseEnvFile(content);
-		expect(result.secretVars).toEqual(["KEY"]);
-	});
+  test("handles export prefix", () => {
+    const content = 'export KEY="op://Vault/item/field"';
+    const result = parseEnvFile(content);
+    expect(result.secretVars).toEqual(["KEY"]);
+  });
 
-	test("returns empty for empty file", () => {
-		const result = parseEnvFile("");
-		expect(result.secretVars).toEqual([]);
-		expect(result.plainVars).toEqual({});
-	});
+  test("returns empty for empty file", () => {
+    const result = parseEnvFile("");
+    expect(result.secretVars).toEqual([]);
+    expect(result.plainVars).toEqual({});
+  });
 });
 ```
 
@@ -290,51 +287,49 @@ Create `src/run/envfile.ts`:
 
 ```typescript
 export interface ParsedEnvFile {
-	/** Env var names whose values are op:// references. */
-	secretVars: string[];
-	/** Env vars with plain (non-secret) values. */
-	plainVars: Record<string, string>;
+  /** Env var names whose values are op:// references. */
+  secretVars: string[];
+  /** Env vars with plain (non-secret) values. */
+  plainVars: Record<string, string>;
 }
 
 export function parseEnvFile(content: string): ParsedEnvFile {
-	const secretVars: string[] = [];
-	const plainVars: Record<string, string> = {};
+  const secretVars: string[] = [];
+  const plainVars: Record<string, string> = {};
 
-	for (const rawLine of content.split("\n")) {
-		const line = rawLine.trim();
-		if (line === "" || line.startsWith("#")) {
-			continue;
-		}
+  for (const rawLine of content.split("\n")) {
+    const line = rawLine.trim();
+    if (line === "" || line.startsWith("#")) {
+      continue;
+    }
 
-		// Strip optional "export " prefix.
-		const stripped = line.startsWith("export ")
-			? line.slice(7).trim()
-			: line;
+    // Strip optional "export " prefix.
+    const stripped = line.startsWith("export ") ? line.slice(7).trim() : line;
 
-		const eqIdx = stripped.indexOf("=");
-		if (eqIdx === -1) {
-			continue;
-		}
+    const eqIdx = stripped.indexOf("=");
+    if (eqIdx === -1) {
+      continue;
+    }
 
-		const key = stripped.slice(0, eqIdx).trim();
-		const rawValue = stripped.slice(eqIdx + 1).trim();
+    const key = stripped.slice(0, eqIdx).trim();
+    const rawValue = stripped.slice(eqIdx + 1).trim();
 
-		// Remove surrounding quotes (single or double).
-		const value = rawValue.replace(/^(['"])(.*)\1$/, "$2");
+    // Remove surrounding quotes (single or double).
+    const value = rawValue.replace(/^(['"])(.*)\1$/, "$2");
 
-		if (value.startsWith("op://")) {
-			secretVars.push(key);
-		} else {
-			plainVars[key] = value;
-		}
-	}
+    if (value.startsWith("op://")) {
+      secretVars.push(key);
+    } else {
+      plainVars[key] = value;
+    }
+  }
 
-	return { secretVars, plainVars };
+  return { secretVars, plainVars };
 }
 
 export async function readEnvFile(path: string): Promise<ParsedEnvFile> {
-	const content = await Bun.file(path).text();
-	return parseEnvFile(content);
+  const content = await Bun.file(path).text();
+  return parseEnvFile(content);
 }
 ```
 
@@ -358,6 +353,7 @@ git commit -m "feat: add env file parser with op:// reference detection"
 ### Task 4: Token Store (TDD)
 
 **Files:**
+
 - Create: `src/serve/tokens.ts`
 - Create: `test/tokens.test.ts`
 
@@ -370,49 +366,49 @@ import { describe, expect, test } from "bun:test";
 import { TokenStore } from "../src/serve/tokens.ts";
 
 describe("TokenStore", () => {
-	test("generates and validates a token", () => {
-		const store = new TokenStore(60_000);
-		const token = store.create();
+  test("generates and validates a token", () => {
+    const store = new TokenStore(60_000);
+    const token = store.create();
 
-		expect(typeof token).toBe("string");
-		expect(token.length).toBeGreaterThan(0);
-		expect(store.validate(token)).toBe(true);
-	});
+    expect(typeof token).toBe("string");
+    expect(token.length).toBeGreaterThan(0);
+    expect(store.validate(token)).toBe(true);
+  });
 
-	test("invalidates token after first use", () => {
-		const store = new TokenStore(60_000);
-		const token = store.create();
+  test("invalidates token after first use", () => {
+    const store = new TokenStore(60_000);
+    const token = store.create();
 
-		expect(store.consume(token)).toBe(true);
-		expect(store.consume(token)).toBe(false);
-		expect(store.validate(token)).toBe(false);
-	});
+    expect(store.consume(token)).toBe(true);
+    expect(store.consume(token)).toBe(false);
+    expect(store.validate(token)).toBe(false);
+  });
 
-	test("rejects unknown tokens", () => {
-		const store = new TokenStore(60_000);
-		expect(store.validate("nonexistent")).toBe(false);
-		expect(store.consume("nonexistent")).toBe(false);
-	});
+  test("rejects unknown tokens", () => {
+    const store = new TokenStore(60_000);
+    expect(store.validate("nonexistent")).toBe(false);
+    expect(store.consume("nonexistent")).toBe(false);
+  });
 
-	test("rejects expired tokens", async () => {
-		const store = new TokenStore(50); // 50ms TTL
-		const token = store.create();
+  test("rejects expired tokens", async () => {
+    const store = new TokenStore(50); // 50ms TTL
+    const token = store.create();
 
-		await Bun.sleep(100);
+    await Bun.sleep(100);
 
-		expect(store.validate(token)).toBe(false);
-		expect(store.consume(token)).toBe(false);
-	});
+    expect(store.validate(token)).toBe(false);
+    expect(store.consume(token)).toBe(false);
+  });
 
-	test("multiple tokens are independent", () => {
-		const store = new TokenStore(60_000);
-		const t1 = store.create();
-		const t2 = store.create();
+  test("multiple tokens are independent", () => {
+    const store = new TokenStore(60_000);
+    const t1 = store.create();
+    const t2 = store.create();
 
-		expect(store.consume(t1)).toBe(true);
-		expect(store.validate(t2)).toBe(true);
-		expect(store.consume(t2)).toBe(true);
-	});
+    expect(store.consume(t1)).toBe(true);
+    expect(store.validate(t2)).toBe(true);
+    expect(store.consume(t2)).toBe(true);
+  });
 });
 ```
 
@@ -432,38 +428,38 @@ Create `src/serve/tokens.ts`:
 import { randomUUID } from "node:crypto";
 
 export class TokenStore {
-	private tokens = new Map<string, number>();
-	private ttlMs: number;
+  private tokens = new Map<string, number>();
+  private ttlMs: number;
 
-	constructor(ttlMs: number) {
-		this.ttlMs = ttlMs;
-	}
+  constructor(ttlMs: number) {
+    this.ttlMs = ttlMs;
+  }
 
-	create(): string {
-		const token = randomUUID();
-		this.tokens.set(token, Date.now() + this.ttlMs);
-		return token;
-	}
+  create(): string {
+    const token = randomUUID();
+    this.tokens.set(token, Date.now() + this.ttlMs);
+    return token;
+  }
 
-	validate(token: string): boolean {
-		const expiry = this.tokens.get(token);
-		if (expiry === undefined) {
-			return false;
-		}
-		if (Date.now() > expiry) {
-			this.tokens.delete(token);
-			return false;
-		}
-		return true;
-	}
+  validate(token: string): boolean {
+    const expiry = this.tokens.get(token);
+    if (expiry === undefined) {
+      return false;
+    }
+    if (Date.now() > expiry) {
+      this.tokens.delete(token);
+      return false;
+    }
+    return true;
+  }
 
-	consume(token: string): boolean {
-		if (!this.validate(token)) {
-			return false;
-		}
-		this.tokens.delete(token);
-		return true;
-	}
+  consume(token: string): boolean {
+    if (!this.validate(token)) {
+      return false;
+    }
+    this.tokens.delete(token);
+    return true;
+  }
 }
 ```
 
@@ -487,6 +483,7 @@ git commit -m "feat: add single-use token store with TTL expiry"
 ### Task 5: Secret Masking (TDD)
 
 **Files:**
+
 - Create: `src/run/masking.ts`
 - Create: `test/masking.test.ts`
 
@@ -499,41 +496,35 @@ import { describe, expect, test } from "bun:test";
 import { createMasker } from "../src/run/masking.ts";
 
 describe("createMasker", () => {
-	test("replaces secret values with <redacted>", () => {
-		const mask = createMasker(["sk_live_abc123", "app_2x7f"]);
-		expect(mask("token is sk_live_abc123 here")).toBe(
-			"token is <redacted> here",
-		);
-	});
+  test("replaces secret values with <redacted>", () => {
+    const mask = createMasker(["sk_live_abc123", "app_2x7f"]);
+    expect(mask("token is sk_live_abc123 here")).toBe("token is <redacted> here");
+  });
 
-	test("replaces multiple secrets in one line", () => {
-		const mask = createMasker(["secret1", "secret2"]);
-		expect(mask("a=secret1 b=secret2")).toBe("a=<redacted> b=<redacted>");
-	});
+  test("replaces multiple secrets in one line", () => {
+    const mask = createMasker(["secret1", "secret2"]);
+    expect(mask("a=secret1 b=secret2")).toBe("a=<redacted> b=<redacted>");
+  });
 
-	test("replaces all occurrences of a secret", () => {
-		const mask = createMasker(["abc"]);
-		expect(mask("abc and abc again")).toBe(
-			"<redacted> and <redacted> again",
-		);
-	});
+  test("replaces all occurrences of a secret", () => {
+    const mask = createMasker(["abc"]);
+    expect(mask("abc and abc again")).toBe("<redacted> and <redacted> again");
+  });
 
-	test("handles no secrets", () => {
-		const mask = createMasker([]);
-		expect(mask("nothing to mask")).toBe("nothing to mask");
-	});
+  test("handles no secrets", () => {
+    const mask = createMasker([]);
+    expect(mask("nothing to mask")).toBe("nothing to mask");
+  });
 
-	test("handles empty string input", () => {
-		const mask = createMasker(["secret"]);
-		expect(mask("")).toBe("");
-	});
+  test("handles empty string input", () => {
+    const mask = createMasker(["secret"]);
+    expect(mask("")).toBe("");
+  });
 
-	test("escapes regex special characters in secrets", () => {
-		const mask = createMasker(["secret.with+special(chars)"]);
-		expect(mask("val: secret.with+special(chars) end")).toBe(
-			"val: <redacted> end",
-		);
-	});
+  test("escapes regex special characters in secrets", () => {
+    const mask = createMasker(["secret.with+special(chars)"]);
+    expect(mask("val: secret.with+special(chars) end")).toBe("val: <redacted> end");
+  });
 });
 ```
 
@@ -551,20 +542,17 @@ Create `src/run/masking.ts`:
 
 ```typescript
 function escapeRegExp(s: string): string {
-	return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export function createMasker(secrets: string[]): (input: string) => string {
-	if (secrets.length === 0) {
-		return (input) => input;
-	}
+  if (secrets.length === 0) {
+    return (input) => input;
+  }
 
-	const pattern = new RegExp(
-		secrets.map(escapeRegExp).join("|"),
-		"g",
-	);
+  const pattern = new RegExp(secrets.map(escapeRegExp).join("|"), "g");
 
-	return (input: string) => input.replace(pattern, "<redacted>");
+  return (input: string) => input.replace(pattern, "<redacted>");
 }
 ```
 
@@ -588,6 +576,7 @@ git commit -m "feat: add secret masking for subprocess output"
 ### Task 6: Telegram Client
 
 **Files:**
+
 - Create: `src/serve/telegram.ts`
 
 - [ ] **Step 1: Write the Telegram client**
@@ -598,263 +587,251 @@ Create `src/serve/telegram.ts`:
 const API_BASE = "https://api.telegram.org/bot";
 
 interface TelegramConfig {
-	botToken: string;
-	chatId: string;
-	timeoutMs: number;
+  botToken: string;
+  chatId: string;
+  timeoutMs: number;
 }
 
 interface InlineButton {
-	text: string;
-	callbackData: string;
+  text: string;
+  callbackData: string;
 }
 
 interface ApprovalResult {
-	action: "approve" | "reject" | "auto_approve" | "stop";
-	reason?: string;
+  action: "approve" | "reject" | "auto_approve" | "stop";
+  reason?: string;
 }
 
 async function apiCall<T>(
-	token: string,
-	method: string,
-	body: Record<string, unknown>,
+  token: string,
+  method: string,
+  body: Record<string, unknown>,
 ): Promise<T> {
-	const res = await fetch(`${API_BASE}${token}/${method}`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(body),
-	});
-	const data = (await res.json()) as { ok: boolean; result: T; description?: string };
-	if (!data.ok) {
-		throw new Error(`Telegram API error: ${data.description}`);
-	}
-	return data.result;
+  const res = await fetch(`${API_BASE}${token}/${method}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = (await res.json()) as { ok: boolean; result: T; description?: string };
+  if (!data.ok) {
+    throw new Error(`Telegram API error: ${data.description}`);
+  }
+  return data.result;
 }
 
 interface TelegramMessage {
-	message_id: number;
-	chat: { id: number };
+  message_id: number;
+  chat: { id: number };
 }
 
 interface TelegramUpdate {
-	update_id: number;
-	callback_query?: {
-		id: string;
-		from: { id: number };
-		message?: TelegramMessage;
-		data?: string;
-	};
-	message?: {
-		message_id: number;
-		from?: { id: number };
-		chat: { id: number };
-		text?: string;
-		reply_to_message?: TelegramMessage;
-	};
+  update_id: number;
+  callback_query?: {
+    id: string;
+    from: { id: number };
+    message?: TelegramMessage;
+    data?: string;
+  };
+  message?: {
+    message_id: number;
+    from?: { id: number };
+    chat: { id: number };
+    text?: string;
+    reply_to_message?: TelegramMessage;
+  };
 }
 
 function buildKeyboard(
-	nonce: string,
-	buttons: InlineButton[][],
+  nonce: string,
+  buttons: InlineButton[][],
 ): { inline_keyboard: { text: string; callback_data: string }[][] } {
-	return {
-		inline_keyboard: buttons.map((row) =>
-			row.map((btn) => ({
-				text: btn.text,
-				callback_data: `${nonce}:${btn.callbackData}`,
-			})),
-		),
-	};
+  return {
+    inline_keyboard: buttons.map((row) =>
+      row.map((btn) => ({
+        text: btn.text,
+        callback_data: `${nonce}:${btn.callbackData}`,
+      })),
+    ),
+  };
 }
 
 export async function requestRunApproval(
-	config: TelegramConfig,
-	opts: {
-		command: string[];
-		cwd: string;
-		reason: string;
-		secretNames: string[];
-	},
+  config: TelegramConfig,
+  opts: {
+    command: string[];
+    cwd: string;
+    reason: string;
+    secretNames: string[];
+  },
 ): Promise<ApprovalResult> {
-	const nonce = crypto.randomUUID().slice(0, 8);
-	const secretList = opts.secretNames.map((s) => `  - ${s}`).join("\n");
-	const text = [
-		"\u{1F511} Secret access request",
-		"",
-		`Reason: ${opts.reason}`,
-		"",
-		`Command: ${opts.command.join(" ")}`,
-		`Working dir: ${opts.cwd}`,
-		`Secrets:`,
-		secretList,
-	].join("\n");
+  const nonce = crypto.randomUUID().slice(0, 8);
+  const secretList = opts.secretNames.map((s) => `  - ${s}`).join("\n");
+  const text = [
+    "\u{1F511} Secret access request",
+    "",
+    `Reason: ${opts.reason}`,
+    "",
+    `Command: ${opts.command.join(" ")}`,
+    `Working dir: ${opts.cwd}`,
+    `Secrets:`,
+    secretList,
+  ].join("\n");
 
-	const keyboard = buildKeyboard(nonce, [
-		[
-			{ text: "Approve", callbackData: "approve" },
-			{ text: "Reject", callbackData: "reject" },
-		],
-		[
-			{ text: "Auto-Approve", callbackData: "auto_approve" },
-			{ text: "Stop", callbackData: "stop" },
-		],
-	]);
+  const keyboard = buildKeyboard(nonce, [
+    [
+      { text: "Approve", callbackData: "approve" },
+      { text: "Reject", callbackData: "reject" },
+    ],
+    [
+      { text: "Auto-Approve", callbackData: "auto_approve" },
+      { text: "Stop", callbackData: "stop" },
+    ],
+  ]);
 
-	const sent = await apiCall<TelegramMessage>(config.botToken, "sendMessage", {
-		chat_id: config.chatId,
-		text,
-		reply_markup: keyboard,
-	});
+  const sent = await apiCall<TelegramMessage>(config.botToken, "sendMessage", {
+    chat_id: config.chatId,
+    text,
+    reply_markup: keyboard,
+  });
 
-	return pollForResponse(config, sent.message_id, nonce);
+  return pollForResponse(config, sent.message_id, nonce);
 }
 
-export async function requestResumeApproval(
-	config: TelegramConfig,
-): Promise<ApprovalResult> {
-	const nonce = crypto.randomUUID().slice(0, 8);
-	const text = [
-		"\u{1F504} Resume request",
-		"",
-		"Agent is requesting to resume the session.",
-	].join("\n");
+export async function requestResumeApproval(config: TelegramConfig): Promise<ApprovalResult> {
+  const nonce = crypto.randomUUID().slice(0, 8);
+  const text = ["\u{1F504} Resume request", "", "Agent is requesting to resume the session."].join(
+    "\n",
+  );
 
-	const keyboard = buildKeyboard(nonce, [
-		[
-			{ text: "Approve", callbackData: "approve" },
-			{ text: "Reject", callbackData: "reject" },
-		],
-	]);
+  const keyboard = buildKeyboard(nonce, [
+    [
+      { text: "Approve", callbackData: "approve" },
+      { text: "Reject", callbackData: "reject" },
+    ],
+  ]);
 
-	const sent = await apiCall<TelegramMessage>(config.botToken, "sendMessage", {
-		chat_id: config.chatId,
-		text,
-		reply_markup: keyboard,
-	});
+  const sent = await apiCall<TelegramMessage>(config.botToken, "sendMessage", {
+    chat_id: config.chatId,
+    text,
+    reply_markup: keyboard,
+  });
 
-	return pollForResponse(config, sent.message_id, nonce);
+  return pollForResponse(config, sent.message_id, nonce);
 }
 
 async function pollForResponse(
-	config: TelegramConfig,
-	messageId: number,
-	nonce: string,
+  config: TelegramConfig,
+  messageId: number,
+  nonce: string,
 ): Promise<ApprovalResult> {
-	const deadline = Date.now() + config.timeoutMs;
-	let offset = 0;
+  const deadline = Date.now() + config.timeoutMs;
+  let offset = 0;
 
-	while (Date.now() < deadline) {
-		const remainingMs = deadline - Date.now();
-		const pollTimeout = Math.min(Math.floor(remainingMs / 1000), 30);
-		if (pollTimeout <= 0) {
-			break;
-		}
+  while (Date.now() < deadline) {
+    const remainingMs = deadline - Date.now();
+    const pollTimeout = Math.min(Math.floor(remainingMs / 1000), 30);
+    if (pollTimeout <= 0) {
+      break;
+    }
 
-		const updates = await apiCall<TelegramUpdate[]>(
-			config.botToken,
-			"getUpdates",
-			{ offset, timeout: pollTimeout },
-		);
+    const updates = await apiCall<TelegramUpdate[]>(config.botToken, "getUpdates", {
+      offset,
+      timeout: pollTimeout,
+    });
 
-		for (const update of updates) {
-			offset = update.update_id + 1;
+    for (const update of updates) {
+      offset = update.update_id + 1;
 
-			// Handle callback query (button press).
-			if (update.callback_query?.data?.startsWith(`${nonce}:`)) {
-				const action = update.callback_query.data.slice(nonce.length + 1);
+      // Handle callback query (button press).
+      if (update.callback_query?.data?.startsWith(`${nonce}:`)) {
+        const action = update.callback_query.data.slice(nonce.length + 1);
 
-				await apiCall(config.botToken, "answerCallbackQuery", {
-					callback_query_id: update.callback_query.id,
-				});
+        await apiCall(config.botToken, "answerCallbackQuery", {
+          callback_query_id: update.callback_query.id,
+        });
 
-				if (action === "approve" || action === "auto_approve") {
-					const label =
-						action === "auto_approve" ? "Auto-approved" : "Approved";
-					await apiCall(config.botToken, "editMessageText", {
-						chat_id: config.chatId,
-						message_id: messageId,
-						text: `\u2705 ${label} at ${new Date().toLocaleTimeString()}`,
-					});
-					return { action: action as ApprovalResult["action"] };
-				}
+        if (action === "approve" || action === "auto_approve") {
+          const label = action === "auto_approve" ? "Auto-approved" : "Approved";
+          await apiCall(config.botToken, "editMessageText", {
+            chat_id: config.chatId,
+            message_id: messageId,
+            text: `\u2705 ${label} at ${new Date().toLocaleTimeString()}`,
+          });
+          return { action: action as ApprovalResult["action"] };
+        }
 
-				// Reject or Stop: ask for reason via force reply.
-				const label = action === "stop" ? "Stopped" : "Rejected";
-				await apiCall(config.botToken, "editMessageText", {
-					chat_id: config.chatId,
-					message_id: messageId,
-					text: `\u274C ${label}. Reply with a reason:`,
-					reply_markup: {
-						force_reply: true,
-						selective: true,
-					},
-				});
+        // Reject or Stop: ask for reason via force reply.
+        const label = action === "stop" ? "Stopped" : "Rejected";
+        await apiCall(config.botToken, "editMessageText", {
+          chat_id: config.chatId,
+          message_id: messageId,
+          text: `\u274C ${label}. Reply with a reason:`,
+          reply_markup: {
+            force_reply: true,
+            selective: true,
+          },
+        });
 
-				// Poll for the text reply.
-				const reason = await pollForTextReply(
-					config,
-					messageId,
-					offset,
-					deadline,
-				);
+        // Poll for the text reply.
+        const reason = await pollForTextReply(config, messageId, offset, deadline);
 
-				await apiCall(config.botToken, "editMessageText", {
-					chat_id: config.chatId,
-					message_id: messageId,
-					text: `\u274C ${label}: ${reason}`,
-				});
+        await apiCall(config.botToken, "editMessageText", {
+          chat_id: config.chatId,
+          message_id: messageId,
+          text: `\u274C ${label}: ${reason}`,
+        });
 
-				return {
-					action: action as ApprovalResult["action"],
-					reason,
-				};
-			}
-		}
-	}
+        return {
+          action: action as ApprovalResult["action"],
+          reason,
+        };
+      }
+    }
+  }
 
-	// Timeout: edit message and reject.
-	await apiCall(config.botToken, "editMessageText", {
-		chat_id: config.chatId,
-		message_id: messageId,
-		text: "\u23F0 Timed out",
-	}).catch(() => {});
+  // Timeout: edit message and reject.
+  await apiCall(config.botToken, "editMessageText", {
+    chat_id: config.chatId,
+    message_id: messageId,
+    text: "\u23F0 Timed out",
+  }).catch(() => {});
 
-	return { action: "reject", reason: "permission request timed out" };
+  return { action: "reject", reason: "permission request timed out" };
 }
 
 async function pollForTextReply(
-	config: TelegramConfig,
-	originalMessageId: number,
-	startOffset: number,
-	deadline: number,
+  config: TelegramConfig,
+  originalMessageId: number,
+  startOffset: number,
+  deadline: number,
 ): Promise<string> {
-	let offset = startOffset;
+  let offset = startOffset;
 
-	while (Date.now() < deadline) {
-		const remainingMs = deadline - Date.now();
-		const pollTimeout = Math.min(Math.floor(remainingMs / 1000), 30);
-		if (pollTimeout <= 0) {
-			break;
-		}
+  while (Date.now() < deadline) {
+    const remainingMs = deadline - Date.now();
+    const pollTimeout = Math.min(Math.floor(remainingMs / 1000), 30);
+    if (pollTimeout <= 0) {
+      break;
+    }
 
-		const updates = await apiCall<TelegramUpdate[]>(
-			config.botToken,
-			"getUpdates",
-			{ offset, timeout: pollTimeout },
-		);
+    const updates = await apiCall<TelegramUpdate[]>(config.botToken, "getUpdates", {
+      offset,
+      timeout: pollTimeout,
+    });
 
-		for (const update of updates) {
-			offset = update.update_id + 1;
+    for (const update of updates) {
+      offset = update.update_id + 1;
 
-			if (
-				update.message?.reply_to_message?.message_id === originalMessageId &&
-				update.message.text
-			) {
-				return update.message.text;
-			}
-		}
-	}
+      if (
+        update.message?.reply_to_message?.message_id === originalMessageId &&
+        update.message.text
+      ) {
+        return update.message.text;
+      }
+    }
+  }
 
-	return "(no reason provided)";
+  return "(no reason provided)";
 }
 ```
 
@@ -878,6 +855,7 @@ git commit -m "feat: add Telegram approval client with inline keyboards"
 ### Task 7: Unix Socket Server
 
 **Files:**
+
 - Create: `src/serve/socket.ts`
 
 - [ ] **Step 1: Write the socket server**
@@ -893,94 +871,90 @@ import type { SocketRequest, SocketResponse } from "../protocol.ts";
 import type { TokenStore } from "./tokens.ts";
 
 export interface SocketHandler {
-	handleRequest(req: SocketRequest): Promise<SocketResponse>;
+  handleRequest(req: SocketRequest): Promise<SocketResponse>;
 }
 
 export function createSocketServer(
-	tokens: TokenStore,
-	handler: SocketHandler,
+  tokens: TokenStore,
+  handler: SocketHandler,
 ): { sockPath: string; close: () => void } {
-	const dir = `${process.env.TMPDIR ?? "/tmp"}/op-remote`;
-	mkdirSync(dir, { recursive: true });
+  const dir = `${process.env.TMPDIR ?? "/tmp"}/op-remote`;
+  mkdirSync(dir, { recursive: true });
 
-	const sockPath = `${dir}/${randomUUID()}.sock`;
+  const sockPath = `${dir}/${randomUUID()}.sock`;
 
-	// Clean up stale socket if present.
-	if (existsSync(sockPath)) {
-		unlinkSync(sockPath);
-	}
+  // Clean up stale socket if present.
+  if (existsSync(sockPath)) {
+    unlinkSync(sockPath);
+  }
 
-	const server = createServer((conn) => {
-		handleConnection(conn, tokens, handler);
-	});
+  const server = createServer((conn) => {
+    handleConnection(conn, tokens, handler);
+  });
 
-	server.listen(sockPath, () => {
-		chmodSync(sockPath, 0o600);
-	});
+  server.listen(sockPath, () => {
+    chmodSync(sockPath, 0o600);
+  });
 
-	const close = () => {
-		server.close();
-		try {
-			unlinkSync(sockPath);
-		} catch {
-			// Already cleaned up.
-		}
-	};
+  const close = () => {
+    server.close();
+    try {
+      unlinkSync(sockPath);
+    } catch {
+      // Already cleaned up.
+    }
+  };
 
-	// Clean up on process exit.
-	process.on("exit", close);
-	process.on("SIGINT", () => {
-		close();
-		process.exit(0);
-	});
-	process.on("SIGTERM", () => {
-		close();
-		process.exit(0);
-	});
+  // Clean up on process exit.
+  process.on("exit", close);
+  process.on("SIGINT", () => {
+    close();
+    process.exit(0);
+  });
+  process.on("SIGTERM", () => {
+    close();
+    process.exit(0);
+  });
 
-	return { sockPath, close };
+  return { sockPath, close };
 }
 
-function handleConnection(
-	conn: NetSocket,
-	tokens: TokenStore,
-	handler: SocketHandler,
-): void {
-	const chunks: Buffer[] = [];
+function handleConnection(conn: NetSocket, tokens: TokenStore, handler: SocketHandler): void {
+  const chunks: Buffer[] = [];
 
-	conn.on("data", (chunk) => {
-		chunks.push(chunk);
-	});
+  conn.on("data", (chunk) => {
+    chunks.push(chunk);
+  });
 
-	conn.on("end", async () => {
-		try {
-			const raw = Buffer.concat(chunks).toString("utf-8");
-			const req = JSON.parse(raw) as SocketRequest;
+  conn.on("end", async () => {
+    try {
+      const raw = Buffer.concat(chunks).toString("utf-8");
+      const req = JSON.parse(raw) as SocketRequest;
 
-			// Validate token (single-use).
-			if (!tokens.consume(req.token)) {
-				const res: SocketResponse = {
-					status: "rejected",
-					reason: "invalid or expired token",
-				};
-				conn.end(JSON.stringify(res));
-				return;
-			}
+      // Validate token (single-use).
+      if (!tokens.consume(req.token)) {
+        const res: SocketResponse = {
+          status: "rejected",
+          reason: "invalid or expired token",
+        };
+        conn.end(JSON.stringify(res));
+        return;
+      }
 
-			// Validate peer UID (defense in depth).
-			// node:net doesn't expose SO_PEERCRED on macOS, so we rely on
-			// socket file permissions (0600) as the primary guard.
+      // Validate peer UID (defense in depth).
+      // node:net doesn't expose SO_PEERCRED on macOS, so we rely on
+      // socket file permissions (0600) as the primary guard.
 
-			const response = await handler.handleRequest(req);
-			conn.end(JSON.stringify(response));
-		} catch (err) {
-			const res: SocketResponse = {
-				status: "rejected",
-				reason: `protocol error: ${err instanceof Error ? err.message : String(err)}`,
-			};
-			conn.end(JSON.stringify(res));
-		}
-	});
+      const response = await handler.handleRequest(req);
+      conn.end(JSON.stringify(response));
+    } catch (err) {
+      const res: SocketResponse = {
+        status: "rejected",
+        reason: `protocol error: ${err instanceof Error ? err.message : String(err)}`,
+      };
+      conn.end(JSON.stringify(res));
+    }
+  });
 }
 ```
 
@@ -1004,6 +978,7 @@ git commit -m "feat: add Unix socket server with token validation"
 ### Task 8: Unix Socket Client
 
 **Files:**
+
 - Create: `src/run/client.ts`
 - Create: `test/socket.test.ts`
 
@@ -1015,35 +990,32 @@ Create `src/run/client.ts`:
 import { connect } from "node:net";
 import type { SocketRequest, SocketResponse } from "../protocol.ts";
 
-export function sendRequest(
-	sockPath: string,
-	req: SocketRequest,
-): Promise<SocketResponse> {
-	return new Promise((resolve, reject) => {
-		const conn = connect(sockPath, () => {
-			conn.end(JSON.stringify(req));
-		});
+export function sendRequest(sockPath: string, req: SocketRequest): Promise<SocketResponse> {
+  return new Promise((resolve, reject) => {
+    const conn = connect(sockPath, () => {
+      conn.end(JSON.stringify(req));
+    });
 
-		const chunks: Buffer[] = [];
+    const chunks: Buffer[] = [];
 
-		conn.on("data", (chunk) => {
-			chunks.push(chunk);
-		});
+    conn.on("data", (chunk) => {
+      chunks.push(chunk);
+    });
 
-		conn.on("end", () => {
-			try {
-				const raw = Buffer.concat(chunks).toString("utf-8");
-				const res = JSON.parse(raw) as SocketResponse;
-				resolve(res);
-			} catch (err) {
-				reject(new Error(`Failed to parse server response: ${err}`));
-			}
-		});
+    conn.on("end", () => {
+      try {
+        const raw = Buffer.concat(chunks).toString("utf-8");
+        const res = JSON.parse(raw) as SocketResponse;
+        resolve(res);
+      } catch (err) {
+        reject(new Error(`Failed to parse server response: ${err}`));
+      }
+    });
 
-		conn.on("error", (err) => {
-			reject(new Error(`Socket connection error: ${err.message}`));
-		});
-	});
+    conn.on("error", (err) => {
+      reject(new Error(`Socket connection error: ${err.message}`));
+    });
+  });
 }
 ```
 
@@ -1054,109 +1026,106 @@ Create `test/socket.test.ts`:
 ```typescript
 import { afterEach, describe, expect, test } from "bun:test";
 import { TokenStore } from "../src/serve/tokens.ts";
-import {
-	createSocketServer,
-	type SocketHandler,
-} from "../src/serve/socket.ts";
+import { createSocketServer, type SocketHandler } from "../src/serve/socket.ts";
 import { sendRequest } from "../src/run/client.ts";
 import type { SocketRequest, SocketResponse } from "../src/protocol.ts";
 
 describe("socket client/server", () => {
-	let cleanup: (() => void) | undefined;
+  let cleanup: (() => void) | undefined;
 
-	afterEach(() => {
-		cleanup?.();
-		cleanup = undefined;
-	});
+  afterEach(() => {
+    cleanup?.();
+    cleanup = undefined;
+  });
 
-	test("approved request returns env vars", async () => {
-		const tokens = new TokenStore(60_000);
-		const token = tokens.create();
+  test("approved request returns env vars", async () => {
+    const tokens = new TokenStore(60_000);
+    const token = tokens.create();
 
-		const handler: SocketHandler = {
-			async handleRequest(req: SocketRequest): Promise<SocketResponse> {
-				return {
-					status: "approved",
-					env: { MY_SECRET: "resolved_value" },
-				};
-			},
-		};
+    const handler: SocketHandler = {
+      async handleRequest(req: SocketRequest): Promise<SocketResponse> {
+        return {
+          status: "approved",
+          env: { MY_SECRET: "resolved_value" },
+        };
+      },
+    };
 
-		const { sockPath, close } = createSocketServer(tokens, handler);
-		cleanup = close;
+    const { sockPath, close } = createSocketServer(tokens, handler);
+    cleanup = close;
 
-		// Give the server a moment to bind.
-		await Bun.sleep(50);
+    // Give the server a moment to bind.
+    await Bun.sleep(50);
 
-		const res = await sendRequest(sockPath, {
-			token,
-			envVars: ["MY_SECRET"],
-			command: ["echo", "hello"],
-			cwd: "/tmp",
-			reason: "test",
-		});
+    const res = await sendRequest(sockPath, {
+      token,
+      envVars: ["MY_SECRET"],
+      command: ["echo", "hello"],
+      cwd: "/tmp",
+      reason: "test",
+    });
 
-		expect(res.status).toBe("approved");
-		expect(res.env).toEqual({ MY_SECRET: "resolved_value" });
-	});
+    expect(res.status).toBe("approved");
+    expect(res.env).toEqual({ MY_SECRET: "resolved_value" });
+  });
 
-	test("invalid token is rejected", async () => {
-		const tokens = new TokenStore(60_000);
+  test("invalid token is rejected", async () => {
+    const tokens = new TokenStore(60_000);
 
-		const handler: SocketHandler = {
-			async handleRequest(): Promise<SocketResponse> {
-				return { status: "approved", env: {} };
-			},
-		};
+    const handler: SocketHandler = {
+      async handleRequest(): Promise<SocketResponse> {
+        return { status: "approved", env: {} };
+      },
+    };
 
-		const { sockPath, close } = createSocketServer(tokens, handler);
-		cleanup = close;
-		await Bun.sleep(50);
+    const { sockPath, close } = createSocketServer(tokens, handler);
+    cleanup = close;
+    await Bun.sleep(50);
 
-		const res = await sendRequest(sockPath, {
-			token: "bogus-token",
-			envVars: [],
-			command: ["true"],
-			cwd: "/tmp",
-			reason: "test",
-		});
+    const res = await sendRequest(sockPath, {
+      token: "bogus-token",
+      envVars: [],
+      command: ["true"],
+      cwd: "/tmp",
+      reason: "test",
+    });
 
-		expect(res.status).toBe("rejected");
-		expect(res.reason).toContain("invalid or expired token");
-	});
+    expect(res.status).toBe("rejected");
+    expect(res.reason).toContain("invalid or expired token");
+  });
 
-	test("token cannot be reused", async () => {
-		const tokens = new TokenStore(60_000);
-		const token = tokens.create();
+  test("token cannot be reused", async () => {
+    const tokens = new TokenStore(60_000);
+    const token = tokens.create();
 
-		const handler: SocketHandler = {
-			async handleRequest(): Promise<SocketResponse> {
-				return { status: "approved", env: {} };
-			},
-		};
+    const handler: SocketHandler = {
+      async handleRequest(): Promise<SocketResponse> {
+        return { status: "approved", env: {} };
+      },
+    };
 
-		const { sockPath, close } = createSocketServer(tokens, handler);
-		cleanup = close;
-		await Bun.sleep(50);
+    const { sockPath, close } = createSocketServer(tokens, handler);
+    cleanup = close;
+    await Bun.sleep(50);
 
-		const res1 = await sendRequest(sockPath, {
-			token,
-			envVars: [],
-			command: ["true"],
-			cwd: "/tmp",
-			reason: "test",
-		});
-		expect(res1.status).toBe("approved");
+    const res1 = await sendRequest(sockPath, {
+      token,
+      envVars: [],
+      command: ["true"],
+      cwd: "/tmp",
+      reason: "test",
+    });
+    expect(res1.status).toBe("approved");
 
-		const res2 = await sendRequest(sockPath, {
-			token,
-			envVars: [],
-			command: ["true"],
-			cwd: "/tmp",
-			reason: "test",
-		});
-		expect(res2.status).toBe("rejected");
-	});
+    const res2 = await sendRequest(sockPath, {
+      token,
+      envVars: [],
+      command: ["true"],
+      cwd: "/tmp",
+      reason: "test",
+    });
+    expect(res2.status).toBe("rejected");
+  });
 });
 ```
 
@@ -1180,6 +1149,7 @@ git commit -m "feat: add Unix socket client with integration tests"
 ### Task 9: MCP Server (Tools + State)
 
 **Files:**
+
 - Create: `src/serve/server.ts`
 
 - [ ] **Step 1: Write the MCP server**
@@ -1191,210 +1161,199 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { TokenStore } from "./tokens.ts";
-import {
-	createSocketServer,
-	type SocketHandler,
-} from "./socket.ts";
-import {
-	requestRunApproval,
-	requestResumeApproval,
-} from "./telegram.ts";
+import { createSocketServer, type SocketHandler } from "./socket.ts";
+import { requestRunApproval, requestResumeApproval } from "./telegram.ts";
 import type { SocketRequest, SocketResponse } from "../protocol.ts";
 
 interface ServerConfig {
-	telegramBotToken: string;
-	telegramChatId: string;
-	timeoutMs: number;
+  telegramBotToken: string;
+  telegramChatId: string;
+  timeoutMs: number;
 }
 
 function readConfig(): ServerConfig {
-	const botToken = process.env.REMOTE_OP_TELEGRAM_BOT_TOKEN;
-	const chatId = process.env.REMOTE_OP_TELEGRAM_CHAT_ID;
+  const botToken = process.env.REMOTE_OP_TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.REMOTE_OP_TELEGRAM_CHAT_ID;
 
-	if (!botToken) {
-		throw new Error("REMOTE_OP_TELEGRAM_BOT_TOKEN is required");
-	}
-	if (!chatId) {
-		throw new Error("REMOTE_OP_TELEGRAM_CHAT_ID is required");
-	}
+  if (!botToken) {
+    throw new Error("REMOTE_OP_TELEGRAM_BOT_TOKEN is required");
+  }
+  if (!chatId) {
+    throw new Error("REMOTE_OP_TELEGRAM_CHAT_ID is required");
+  }
 
-	const timeoutMs =
-		Number.parseInt(process.env.REMOTE_OP_TIMEOUT ?? "120", 10) * 1000;
+  const timeoutMs = Number.parseInt(process.env.REMOTE_OP_TIMEOUT ?? "120", 10) * 1000;
 
-	return { telegramBotToken: botToken, telegramChatId: chatId, timeoutMs };
+  return { telegramBotToken: botToken, telegramChatId: chatId, timeoutMs };
 }
 
 export async function startServer(): Promise<void> {
-	const config = readConfig();
-	const tokens = new TokenStore(config.timeoutMs);
+  const config = readConfig();
+  const tokens = new TokenStore(config.timeoutMs);
 
-	// State.
-	let stopped = false;
-	let autoApprove = false;
+  // State.
+  let stopped = false;
+  let autoApprove = false;
 
-	// Socket handler that resolves secrets from process.env.
-	const socketHandler: SocketHandler = {
-		async handleRequest(req: SocketRequest): Promise<SocketResponse> {
-			// Check that all requested env vars exist.
-			const missing = req.envVars.filter((v) => !(v in process.env));
-			if (missing.length > 0) {
-				return {
-					status: "rejected",
-					reason: `unknown env vars: ${missing.join(", ")}`,
-				};
-			}
+  // Socket handler that resolves secrets from process.env.
+  const socketHandler: SocketHandler = {
+    async handleRequest(req: SocketRequest): Promise<SocketResponse> {
+      // Check that all requested env vars exist.
+      const missing = req.envVars.filter((v) => !(v in process.env));
+      if (missing.length > 0) {
+        return {
+          status: "rejected",
+          reason: `unknown env vars: ${missing.join(", ")}`,
+        };
+      }
 
-			// If auto-approve is on, skip Telegram.
-			if (!autoApprove) {
-				const telegramConfig = {
-					botToken: config.telegramBotToken,
-					chatId: config.telegramChatId,
-					timeoutMs: config.timeoutMs,
-				};
+      // If auto-approve is on, skip Telegram.
+      if (!autoApprove) {
+        const telegramConfig = {
+          botToken: config.telegramBotToken,
+          chatId: config.telegramChatId,
+          timeoutMs: config.timeoutMs,
+        };
 
-				const result = await requestRunApproval(telegramConfig, {
-					command: req.command,
-					cwd: req.cwd,
-					reason: req.reason,
-					secretNames: req.envVars,
-				});
+        const result = await requestRunApproval(telegramConfig, {
+          command: req.command,
+          cwd: req.cwd,
+          reason: req.reason,
+          secretNames: req.envVars,
+        });
 
-				if (result.action === "auto_approve") {
-					autoApprove = true;
-				} else if (result.action === "stop") {
-					stopped = true;
-					return { status: "rejected", reason: result.reason ?? "stopped" };
-				} else if (result.action === "reject") {
-					return { status: "rejected", reason: result.reason ?? "rejected" };
-				}
-			}
+        if (result.action === "auto_approve") {
+          autoApprove = true;
+        } else if (result.action === "stop") {
+          stopped = true;
+          return { status: "rejected", reason: result.reason ?? "stopped" };
+        } else if (result.action === "reject") {
+          return { status: "rejected", reason: result.reason ?? "rejected" };
+        }
+      }
 
-			// Resolve secrets from own environment.
-			const env: Record<string, string> = {};
-			for (const name of req.envVars) {
-				env[name] = process.env[name]!;
-			}
+      // Resolve secrets from own environment.
+      const env: Record<string, string> = {};
+      for (const name of req.envVars) {
+        env[name] = process.env[name]!;
+      }
 
-			return { status: "approved", env };
-		},
-	};
+      return { status: "approved", env };
+    },
+  };
 
-	const { sockPath } = createSocketServer(tokens, socketHandler);
+  const { sockPath } = createSocketServer(tokens, socketHandler);
 
-	// MCP server.
-	const mcp = new McpServer(
-		{ name: "op-remote", version: "0.1.0" },
-		{ capabilities: { logging: {} } },
-	);
+  // MCP server.
+  const mcp = new McpServer(
+    { name: "op-remote", version: "0.1.0" },
+    { capabilities: { logging: {} } },
+  );
 
-	// Tool: request_token
-	mcp.registerTool(
-		"request_token",
-		{
-			title: "Request Token",
-			description:
-				"Request a one-time token for authenticating with the op-remote CLI. Returns a token and socket path. If the session has been stopped by the user, this will return an error instructing you to stop what you are doing and wait for further instructions from the user.",
-			inputSchema: z.object({}),
-		},
-		async () => {
-			if (stopped) {
-				return {
-					isError: true,
-					content: [
-						{
-							type: "text" as const,
-							text: "Session has been stopped by the user. Stop what you are doing and wait for further instructions from the user.",
-						},
-					],
-				};
-			}
+  // Tool: request_token
+  mcp.registerTool(
+    "request_token",
+    {
+      title: "Request Token",
+      description:
+        "Request a one-time token for authenticating with the op-remote CLI. Returns a token and socket path. If the session has been stopped by the user, this will return an error instructing you to stop what you are doing and wait for further instructions from the user.",
+      inputSchema: z.object({}),
+    },
+    async () => {
+      if (stopped) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text" as const,
+              text: "Session has been stopped by the user. Stop what you are doing and wait for further instructions from the user.",
+            },
+          ],
+        };
+      }
 
-			const token = tokens.create();
-			return {
-				content: [
-					{
-						type: "text" as const,
-						text: JSON.stringify({ token, sock: sockPath }),
-					},
-				],
-			};
-		},
-	);
+      const token = tokens.create();
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({ token, sock: sockPath }),
+          },
+        ],
+      };
+    },
+  );
 
-	// Tool: resume
-	mcp.registerTool(
-		"resume",
-		{
-			title: "Resume Session",
-			description:
-				"Request to resume a stopped session. Requires Telegram approval. Only use when the user explicitly asks you to resume.",
-			inputSchema: z.object({}),
-		},
-		async (_input, ctx) => {
-			if (!stopped) {
-				return {
-					content: [
-						{ type: "text" as const, text: "Session is not stopped." },
-					],
-				};
-			}
+  // Tool: resume
+  mcp.registerTool(
+    "resume",
+    {
+      title: "Resume Session",
+      description:
+        "Request to resume a stopped session. Requires Telegram approval. Only use when the user explicitly asks you to resume.",
+      inputSchema: z.object({}),
+    },
+    async (_input, ctx) => {
+      if (!stopped) {
+        return {
+          content: [{ type: "text" as const, text: "Session is not stopped." }],
+        };
+      }
 
-			const telegramConfig = {
-				botToken: config.telegramBotToken,
-				chatId: config.telegramChatId,
-				timeoutMs: config.timeoutMs,
-			};
+      const telegramConfig = {
+        botToken: config.telegramBotToken,
+        chatId: config.telegramChatId,
+        timeoutMs: config.timeoutMs,
+      };
 
-			const result = await requestResumeApproval(telegramConfig);
+      const result = await requestResumeApproval(telegramConfig);
 
-			if (result.action === "approve") {
-				stopped = false;
-				return {
-					content: [
-						{ type: "text" as const, text: "Session resumed." },
-					],
-				};
-			}
+      if (result.action === "approve") {
+        stopped = false;
+        return {
+          content: [{ type: "text" as const, text: "Session resumed." }],
+        };
+      }
 
-			const reason = result.reason ?? "resume denied";
-			await ctx.log("warning", `Resume denied: ${reason}`);
-			return {
-				isError: true,
-				content: [
-					{
-						type: "text" as const,
-						text: `Resume denied: ${reason}`,
-					},
-				],
-			};
-		},
-	);
+      const reason = result.reason ?? "resume denied";
+      await ctx.log("warning", `Resume denied: ${reason}`);
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text" as const,
+            text: `Resume denied: ${reason}`,
+          },
+        ],
+      };
+    },
+  );
 
-	// Tool: disable_auto_approve
-	mcp.registerTool(
-		"disable_auto_approve",
-		{
-			title: "Disable Auto-Approve",
-			description:
-				"Disable auto-approval so future secret access requests require Telegram approval again. Only use when the user explicitly asks.",
-			inputSchema: z.object({}),
-		},
-		async () => {
-			autoApprove = false;
-			return {
-				content: [
-					{
-						type: "text" as const,
-						text: "Auto-approve disabled. Future requests will require Telegram approval.",
-					},
-				],
-			};
-		},
-	);
+  // Tool: disable_auto_approve
+  mcp.registerTool(
+    "disable_auto_approve",
+    {
+      title: "Disable Auto-Approve",
+      description:
+        "Disable auto-approval so future secret access requests require Telegram approval again. Only use when the user explicitly asks.",
+      inputSchema: z.object({}),
+    },
+    async () => {
+      autoApprove = false;
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: "Auto-approve disabled. Future requests will require Telegram approval.",
+          },
+        ],
+      };
+    },
+  );
 
-	// Start MCP server on stdio.
-	const transport = new StdioServerTransport();
-	await mcp.connect(transport);
+  // Start MCP server on stdio.
+  const transport = new StdioServerTransport();
+  await mcp.connect(transport);
 }
 ```
 
@@ -1418,6 +1377,7 @@ git commit -m "feat: add MCP server with token, resume, and auto-approve tools"
 ### Task 10: CLI Run Command
 
 **Files:**
+
 - Create: `src/run/exec.ts`
 - Create: `src/run/run.ts`
 
@@ -1430,41 +1390,41 @@ import { spawn } from "node:child_process";
 import { createMasker } from "./masking.ts";
 
 export function execWithSecrets(
-	command: string[],
-	cwd: string,
-	inheritedEnv: Record<string, string>,
-	resolvedSecrets: Record<string, string>,
-	plainVars: Record<string, string>,
+  command: string[],
+  cwd: string,
+  inheritedEnv: Record<string, string>,
+  resolvedSecrets: Record<string, string>,
+  plainVars: Record<string, string>,
 ): Promise<number> {
-	// Merge env: inherited < plain vars < resolved secrets.
-	const env = { ...inheritedEnv, ...plainVars, ...resolvedSecrets };
+  // Merge env: inherited < plain vars < resolved secrets.
+  const env = { ...inheritedEnv, ...plainVars, ...resolvedSecrets };
 
-	const mask = createMasker(Object.values(resolvedSecrets));
+  const mask = createMasker(Object.values(resolvedSecrets));
 
-	return new Promise((resolve) => {
-		const child = spawn(command[0], command.slice(1), {
-			cwd,
-			env,
-			stdio: ["inherit", "pipe", "pipe"],
-		});
+  return new Promise((resolve) => {
+    const child = spawn(command[0], command.slice(1), {
+      cwd,
+      env,
+      stdio: ["inherit", "pipe", "pipe"],
+    });
 
-		child.stdout.on("data", (chunk: Buffer) => {
-			process.stdout.write(mask(chunk.toString()));
-		});
+    child.stdout.on("data", (chunk: Buffer) => {
+      process.stdout.write(mask(chunk.toString()));
+    });
 
-		child.stderr.on("data", (chunk: Buffer) => {
-			process.stderr.write(mask(chunk.toString()));
-		});
+    child.stderr.on("data", (chunk: Buffer) => {
+      process.stderr.write(mask(chunk.toString()));
+    });
 
-		child.on("close", (code) => {
-			resolve(code ?? 1);
-		});
+    child.on("close", (code) => {
+      resolve(code ?? 1);
+    });
 
-		child.on("error", (err) => {
-			process.stderr.write(`Failed to start process: ${err.message}\n`);
-			resolve(2);
-		});
-	});
+    child.on("error", (err) => {
+      process.stderr.write(`Failed to start process: ${err.message}\n`);
+      resolve(2);
+    });
+  });
 }
 ```
 
@@ -1479,95 +1439,95 @@ import { execWithSecrets } from "./exec.ts";
 import { EXIT_PROTOCOL_ERROR, EXIT_REJECTED } from "../protocol.ts";
 
 interface RunArgs {
-	token: string;
-	sock: string;
-	envFile: string;
-	reason: string;
-	command: string[];
+  token: string;
+  sock: string;
+  envFile: string;
+  reason: string;
+  command: string[];
 }
 
 export function parseRunArgs(argv: string[]): RunArgs {
-	let token: string | undefined;
-	let sock: string | undefined;
-	let envFile: string | undefined;
-	let reason: string | undefined;
-	let command: string[] | undefined;
+  let token: string | undefined;
+  let sock: string | undefined;
+  let envFile: string | undefined;
+  let reason: string | undefined;
+  let command: string[] | undefined;
 
-	const args = argv.slice(3); // skip: bun, cli.ts, "run"
-	for (let i = 0; i < args.length; i++) {
-		const arg = args[i];
+  const args = argv.slice(3); // skip: bun, cli.ts, "run"
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
 
-		if (arg === "--") {
-			command = args.slice(i + 1);
-			break;
-		}
+    if (arg === "--") {
+      command = args.slice(i + 1);
+      break;
+    }
 
-		if (arg.startsWith("--token=")) {
-			token = arg.slice(8);
-		} else if (arg.startsWith("--sock=")) {
-			sock = arg.slice(7);
-		} else if (arg.startsWith("--env-file=")) {
-			envFile = arg.slice(11);
-		} else if (arg.startsWith("--reason=")) {
-			reason = arg.slice(9);
-		} else {
-			console.error(`Unknown flag: ${arg}`);
-			process.exit(EXIT_PROTOCOL_ERROR);
-		}
-	}
+    if (arg.startsWith("--token=")) {
+      token = arg.slice(8);
+    } else if (arg.startsWith("--sock=")) {
+      sock = arg.slice(7);
+    } else if (arg.startsWith("--env-file=")) {
+      envFile = arg.slice(11);
+    } else if (arg.startsWith("--reason=")) {
+      reason = arg.slice(9);
+    } else {
+      console.error(`Unknown flag: ${arg}`);
+      process.exit(EXIT_PROTOCOL_ERROR);
+    }
+  }
 
-	if (!token || !sock || !envFile || !reason || !command?.length) {
-		console.error(
-			"Usage: op-remote run --token=TOKEN --sock=SOCK --env-file=FILE --reason=REASON -- COMMAND...",
-		);
-		process.exit(EXIT_PROTOCOL_ERROR);
-	}
+  if (!token || !sock || !envFile || !reason || !command?.length) {
+    console.error(
+      "Usage: op-remote run --token=TOKEN --sock=SOCK --env-file=FILE --reason=REASON -- COMMAND...",
+    );
+    process.exit(EXIT_PROTOCOL_ERROR);
+  }
 
-	return { token, sock, envFile, reason, command };
+  return { token, sock, envFile, reason, command };
 }
 
 export async function runCommand(args: RunArgs): Promise<never> {
-	// Parse the env file.
-	const { secretVars, plainVars } = await readEnvFile(args.envFile);
+  // Parse the env file.
+  const { secretVars, plainVars } = await readEnvFile(args.envFile);
 
-	if (secretVars.length === 0) {
-		console.error("No op:// references found in env file");
-		process.exit(EXIT_PROTOCOL_ERROR);
-	}
+  if (secretVars.length === 0) {
+    console.error("No op:// references found in env file");
+    process.exit(EXIT_PROTOCOL_ERROR);
+  }
 
-	// Request secrets from the MCP server.
-	const cwd = process.cwd();
-	let response;
-	try {
-		response = await sendRequest(args.sock, {
-			token: args.token,
-			envVars: secretVars,
-			command: args.command,
-			cwd,
-			reason: args.reason,
-		});
-	} catch (err) {
-		console.error(
-			`Failed to connect to op-remote server: ${err instanceof Error ? err.message : String(err)}`,
-		);
-		process.exit(EXIT_PROTOCOL_ERROR);
-	}
+  // Request secrets from the MCP server.
+  const cwd = process.cwd();
+  let response;
+  try {
+    response = await sendRequest(args.sock, {
+      token: args.token,
+      envVars: secretVars,
+      command: args.command,
+      cwd,
+      reason: args.reason,
+    });
+  } catch (err) {
+    console.error(
+      `Failed to connect to op-remote server: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    process.exit(EXIT_PROTOCOL_ERROR);
+  }
 
-	if (response.status === "rejected") {
-		console.error(`Rejected: ${response.reason ?? "unknown reason"}`);
-		process.exit(EXIT_REJECTED);
-	}
+  if (response.status === "rejected") {
+    console.error(`Rejected: ${response.reason ?? "unknown reason"}`);
+    process.exit(EXIT_REJECTED);
+  }
 
-	// Execute the subprocess with resolved secrets.
-	const exitCode = await execWithSecrets(
-		args.command,
-		cwd,
-		process.env as Record<string, string>,
-		response.env!,
-		plainVars,
-	);
+  // Execute the subprocess with resolved secrets.
+  const exitCode = await execWithSecrets(
+    args.command,
+    cwd,
+    process.env as Record<string, string>,
+    response.env!,
+    plainVars,
+  );
 
-	process.exit(exitCode);
+  process.exit(exitCode);
 }
 ```
 
@@ -1591,6 +1551,7 @@ git commit -m "feat: add CLI run command with env merging and secret masking"
 ### Task 11: Wire CLI Entrypoint
 
 **Files:**
+
 - Modify: `src/cli.ts`
 
 - [ ] **Step 1: Update cli.ts to wire subcommands**
@@ -1603,20 +1564,20 @@ Replace `src/cli.ts` with:
 const [subcommand] = process.argv.slice(2);
 
 switch (subcommand) {
-	case "serve": {
-		const { startServer } = await import("./serve/server.ts");
-		await startServer();
-		break;
-	}
-	case "run": {
-		const { parseRunArgs, runCommand } = await import("./run/run.ts");
-		const args = parseRunArgs(process.argv);
-		await runCommand(args);
-		break;
-	}
-	default:
-		console.error("Usage: op-remote <serve|run>");
-		process.exit(1);
+  case "serve": {
+    const { startServer } = await import("./serve/server.ts");
+    await startServer();
+    break;
+  }
+  case "run": {
+    const { parseRunArgs, runCommand } = await import("./run/run.ts");
+    const args = parseRunArgs(process.argv);
+    await runCommand(args);
+    break;
+  }
+  default:
+    console.error("Usage: op-remote <serve|run>");
+    process.exit(1);
 }
 ```
 
@@ -1697,7 +1658,15 @@ Create a `.mcp.json` in a test project:
   "mcpServers": {
     "op-remote": {
       "command": "op",
-      "args": ["run", "--env-file", ".env.tpl", "--", "bun", "/path/to/op-remote/src/cli.ts", "serve"],
+      "args": [
+        "run",
+        "--env-file",
+        ".env.tpl",
+        "--",
+        "bun",
+        "/path/to/op-remote/src/cli.ts",
+        "serve"
+      ],
       "env": {
         "REMOTE_OP_TELEGRAM_BOT_TOKEN": "op://Development/op-remote/telegram-bot-token",
         "REMOTE_OP_TELEGRAM_CHAT_ID": "op://Development/op-remote/telegram-chat-id",
@@ -1709,6 +1678,7 @@ Create a `.mcp.json` in a test project:
 ```
 
 Start a Claude Code session and verify:
+
 1. `request_token` tool returns `{token, sock}`
 2. `op-remote run --token=... --sock=... --env-file=.env.tpl --reason="test" -- env` shows resolved secrets
 3. Telegram message appears with approval buttons
@@ -1720,6 +1690,7 @@ Start a Claude Code session and verify:
 ### Task 13: Claude Code Skill + Plugin Structure
 
 **Files:**
+
 - Create: `.claude-plugin/plugin.json`
 - Create: `skills/op-remote/SKILL.md`
 
@@ -1745,7 +1716,7 @@ Create `skills/op-remote/SKILL.md`:
 ````markdown
 ---
 name: op-remote
-description: "Guides usage of the op-remote MCP server for running commands with 1Password secrets. Triggers when op-remote:request_token tool is available, when running commands that need secrets from .env.tpl, or when encountering \"op-remote\", \"secret access\", \"op://\"."
+description: 'Guides usage of the op-remote MCP server for running commands with 1Password secrets. Triggers when op-remote:request_token tool is available, when running commands that need secrets from .env.tpl, or when encountering "op-remote", "secret access", "op://".'
 user-invocable: true
 ---
 
