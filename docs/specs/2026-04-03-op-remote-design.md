@@ -319,6 +319,11 @@ stdout/stderr of the subprocess are scanned. Any occurrence of a resolved secret
 
 ```
 op-remote/
+├── .claude-plugin/
+│   └── plugin.json           # Claude Code plugin manifest
+├── skills/
+│   └── op-remote/
+│       └── SKILL.md          # Claude Code skill for op-remote workflow
 ├── src/
 │   ├── cli.ts               # CLI entrypoint, subcommand routing
 │   ├── serve/
