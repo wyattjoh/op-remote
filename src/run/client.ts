@@ -30,9 +30,7 @@ export function sendRequest(
 							const res = JSON.parse(raw) as SocketResponse;
 							resolve(res);
 						} catch (err) {
-							reject(
-								new Error(`Failed to parse server response: ${err}`),
-							);
+							reject(new Error(`Failed to parse server response: ${err}`));
 						}
 					});
 				},
@@ -43,7 +41,9 @@ export function sendRequest(
 				},
 			},
 		}).catch((err) => {
-			settle(() => reject(new Error(`Socket connection error: ${err.message}`)));
+			settle(() =>
+				reject(new Error(`Socket connection error: ${err.message}`)),
+			);
 		});
 	});
 }

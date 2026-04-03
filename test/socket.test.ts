@@ -1,11 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { TokenStore } from "../src/serve/tokens.ts";
-import {
-	createSocketServer,
-	type SocketHandler,
-} from "../src/serve/socket.ts";
-import { sendRequest } from "../src/run/client.ts";
 import type { SocketRequest, SocketResponse } from "../src/protocol.ts";
+import { sendRequest } from "../src/run/client.ts";
+import { type SocketHandler, createSocketServer } from "../src/serve/socket.ts";
+import { TokenStore } from "../src/serve/tokens.ts";
 
 describe("socket client/server", () => {
 	let cleanup: (() => void) | undefined;
