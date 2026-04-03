@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/wyattjoh/op-remote/compare/op-remote-v0.2.1...op-remote-v0.2.2) (2026-04-03)
+
+
+### Bug Fixes
+
+* add repository URL to package.json for npm provenance ([26c0d55](https://github.com/wyattjoh/op-remote/commit/26c0d55f6e7c954480a71bb2cea3d1d8903f68e8))
+
 ## [0.2.1](https://github.com/wyattjoh/op-remote/compare/op-remote-v0.2.0...op-remote-v0.2.1) (2026-04-03)
 
 

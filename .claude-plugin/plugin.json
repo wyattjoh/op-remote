@@ -1,6 +1,6 @@
 {
   "name": "op-remote",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "description": "Remote 1Password secret access with Telegram approval for AI agents",
   "author": {
     "name": "Wyatt Johnson"
