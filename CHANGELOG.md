@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/wyattjoh/op-remote/compare/op-remote-v0.2.0...op-remote-v0.2.1) (2026-04-03)
+
+
+### Bug Fixes
+
+* harden secret masking, Telegram approval, socket, and token handling ([3676461](https://github.com/wyattjoh/op-remote/commit/36764611620ff038627e7dac44bd8b05de4dce2a))
+
 ## [0.2.0](https://github.com/wyattjoh/remote-op/compare/op-remote-v0.1.0...op-remote-v0.2.0) (2026-04-03)
 
 
