@@ -1745,7 +1745,7 @@ Create `skills/op-remote/SKILL.md`:
 ````markdown
 ---
 name: op-remote
-description: "Guides usage of the op-remote MCP server for running commands with 1Password secrets. Triggers when `request_token` tool is available, when running commands that need secrets from `.env.tpl`, or when encountering \"op-remote\", \"secret access\", \"op://\"."
+description: "Guides usage of the op-remote MCP server for running commands with 1Password secrets. Triggers when op-remote:request_token tool is available, when running commands that need secrets from .env.tpl, or when encountering \"op-remote\", \"secret access\", \"op://\"."
 user-invocable: true
 ---
 
@@ -1758,7 +1758,7 @@ Secrets never enter your context. You see tokens and masked output only.
 
 When you need to run a command that requires secrets from a `.env.tpl` file:
 
-1. **Request a token** by calling the `request_token` MCP tool (no arguments)
+1. **Request a token** by calling the `op-remote:request_token` MCP tool (no arguments)
 2. **Parse the response** which contains `{"token": "...", "sock": "..."}`
 3. **Run the command** using the CLI:
 
@@ -1792,7 +1792,7 @@ Bad reasons:
 
 ### "Session has been stopped by the user"
 
-The `request_token` tool returns this when the user tapped **Stop** in Telegram. **You must immediately stop what you are doing and wait for the user to give you further instructions.** Do not retry, do not attempt workarounds.
+The `op-remote:request_token` tool returns this when the user tapped **Stop** in Telegram. **You must immediately stop what you are doing and wait for the user to give you further instructions.** Do not retry, do not attempt workarounds.
 
 ### "Rejected: <reason>"
 
@@ -1804,11 +1804,11 @@ The user didn't respond within the timeout window. They may be unavailable. Wait
 
 ## Other MCP Tools
 
-### `resume`
+### `op-remote:resume`
 
 Only call this when the **user explicitly asks** you to resume after a stop. Do not call it on your own initiative. It requires Telegram approval.
 
-### `disable_auto_approve`
+### `op-remote:disable_auto_approve`
 
 Only call this when the **user explicitly asks** to disable auto-approval. This re-enables per-request Telegram approval for subsequent commands.
 
@@ -1816,8 +1816,8 @@ Only call this when the **user explicitly asks** to disable auto-approval. This 
 
 - **Never** attempt to read the Unix socket path directly or connect to it outside of `op-remote run`
 - **Never** try to extract secret values from masked output
-- **Never** call `resume` without explicit user instruction
-- **Never** call `disable_auto_approve` without explicit user instruction
+- **Never** call `op-remote:resume` without explicit user instruction
+- **Never** call `op-remote:disable_auto_approve` without explicit user instruction
 - The `--reason` flag is visible to the user; be honest about what you are doing and why
 ````
 
