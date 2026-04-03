@@ -1,0 +1,23 @@
+{
+  "name": "@wyattjoh/op-remote",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "op-remote": "./src/cli.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "bun test",
+    "check": "bunx @biomejs/biome check --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "@types/bun": "latest",
+    "typescript": "^5.8.0"
+  }
+}
