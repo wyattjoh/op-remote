@@ -1,0 +1,8 @@
+{
+  "name": "op-remote",
+  "version": "0.1.0",
+  "description": "Remote 1Password secret access with Telegram approval for AI agents",
+  "author": {
+    "name": "Wyatt Johnson"
+  }
+}
