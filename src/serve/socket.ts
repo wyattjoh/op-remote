@@ -59,12 +59,11 @@ function handleConnection(
 	handler: SocketHandler,
 ): void {
 	const chunks: Uint8Array[] = [];
+	let responded = false;
 
-	conn.on("data", (chunk: Uint8Array) => {
-		chunks.push(chunk);
-	});
-
-	conn.on("end", async () => {
+	const respond = async () => {
+		if (responded) return;
+		responded = true;
 		try {
 			const raw = Buffer.concat(chunks).toString("utf-8");
 			const req = JSON.parse(raw) as SocketRequest;
@@ -92,5 +91,26 @@ function handleConnection(
 			};
 			conn.end(JSON.stringify(res));
 		}
+	};
+
+	conn.on("data", (chunk: Uint8Array) => {
+		chunks.push(chunk);
+		// Attempt to parse immediately after each chunk so the response can be
+		// sent before the client half-closes the connection. This is necessary
+		// because Bun's node:net client drops incoming data after calling end().
+		const raw = Buffer.concat(chunks).toString("utf-8");
+		try {
+			JSON.parse(raw);
+			// Valid JSON received — respond now without waiting for client FIN.
+			void respond();
+		} catch {
+			// Incomplete JSON; wait for more data.
+		}
+	});
+
+	conn.on("end", () => {
+		// Fallback: respond if we haven't already (e.g. data arrived all at once
+		// but JSON parse failed above, or the data event never fired).
+		void respond();
 	});
 }
