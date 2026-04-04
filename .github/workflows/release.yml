@@ -44,7 +44,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - uses: wyattjoh/json-version-update@main
+      - uses: wyattjoh/json-version-update@v1
         with:
           file: .claude-plugin/plugin.json
           jsonpath: '.mcpServers["op-remote"].args[0]'
