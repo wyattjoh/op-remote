@@ -9,7 +9,7 @@
     "op-remote": {
       "command": "npx",
       "args": [
-        "@wyattjoh/op-remote@0.2.2",
+        "@wyattjoh/op-remote@0.3.0",
         "serve"
       ]
     }
