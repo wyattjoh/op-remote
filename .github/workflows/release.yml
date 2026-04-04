@@ -13,6 +13,7 @@ jobs:
       pull-requests: write
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
+      pr: ${{ steps.release.outputs.pr }}
       tag_name: ${{ steps.release.outputs.tag_name }}
       major: ${{ steps.release.outputs.major }}
       minor: ${{ steps.release.outputs.minor }}
@@ -22,6 +23,36 @@ jobs:
         id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  sync-plugin-version:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.releases_created != 'true' && needs.release-please.outputs.pr != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ fromJSON(needs.release-please.outputs.pr).headBranchName }}
+
+      - name: Get version from package.json
+        id: version
+        run: echo "version=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - uses: wyattjoh/json-version-update@main
+        with:
+          file: .claude-plugin/plugin.json
+          jsonpath: '.mcpServers["op-remote"].args[0]'
+          template: "@wyattjoh/op-remote@${version}"
+          version: ${{ steps.version.outputs.version }}
+
+      - name: Push changes
+        run: git push
 
   publish:
     needs: release-please
