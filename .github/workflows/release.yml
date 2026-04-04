@@ -39,20 +39,12 @@ jobs:
         id: version
         run: echo "version=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
 
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
       - uses: wyattjoh/json-version-update@v1
         with:
           file: .claude-plugin/plugin.json
           jsonpath: '.mcpServers["op-remote"].args[0]'
           template: "@wyattjoh/op-remote@${version}"
           version: ${{ steps.version.outputs.version }}
-
-      - name: Push changes
-        run: git push
 
   publish:
     needs: release-please
