@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/wyattjoh/op-remote/compare/op-remote-v0.2.2...op-remote-v0.3.0) (2026-04-04)
+
+
+### Features
+
+* add marketplace update step to release workflow ([693fa55](https://github.com/wyattjoh/op-remote/commit/693fa558f386f8cbd1040fd7ceb9d77292b14a60))
+* add MCP server config and auto-sync version in release workflow ([0cf28d2](https://github.com/wyattjoh/op-remote/commit/0cf28d275ccee86ddaef2a1ef3d304a4cd697a5f))
+
 ## [0.2.2](https://github.com/wyattjoh/op-remote/compare/op-remote-v0.2.1...op-remote-v0.2.2) (2026-04-03)
 
 

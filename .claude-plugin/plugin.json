@@ -1,6 +1,6 @@
 {
   "name": "op-remote",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Remote 1Password secret access with Telegram approval for AI agents",
   "author": {
     "name": "Wyatt Johnson"
@@ -8,7 +8,10 @@
   "mcpServers": {
     "op-remote": {
       "command": "npx",
-      "args": ["@wyattjoh/op-remote@0.2.2", "serve"]
+      "args": [
+        "@wyattjoh/op-remote@0.3.0",
+        "serve"
+      ]
     }
   }
 }
