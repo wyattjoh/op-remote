@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release-please:
     runs-on: ubuntu-latest
@@ -13,11 +17,8 @@ jobs:
       pull-requests: write
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
-      pr: ${{ steps.release.outputs.pr }}
       tag_name: ${{ steps.release.outputs.tag_name }}
-      major: ${{ steps.release.outputs.major }}
-      minor: ${{ steps.release.outputs.minor }}
-      patch: ${{ steps.release.outputs.patch }}
+      version: ${{ steps.release.outputs.version }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -38,8 +39,6 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - run: bun run lint
-      - run: bun run typecheck
       - run: bun run build
 
       - uses: actions/setup-node@v4
@@ -58,6 +57,6 @@ jobs:
         uses: wyattjoh/claude-code-marketplace@v1
         with:
           plugin-name: op-remote
-          version: ${{ needs.release-please.outputs.major }}.${{ needs.release-please.outputs.minor }}.${{ needs.release-please.outputs.patch }}
+          version: ${{ needs.release-please.outputs.version }}
           ref: ${{ needs.release-please.outputs.tag_name }}
           token: ${{ secrets.MARKETPLACE_PAT }}

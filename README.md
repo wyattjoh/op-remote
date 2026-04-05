@@ -34,12 +34,12 @@ bun install -g @wyattjoh/op-remote
 
 ### Environment variables
 
-| Variable | Required | Description |
-| --- | --- | --- |
-| `REMOTE_OP_TELEGRAM_BOT_TOKEN` | Yes | Telegram bot token for sending approval requests |
-| `REMOTE_OP_TELEGRAM_CHAT_ID` | Yes | Telegram chat ID to send approval messages to |
-| `REMOTE_OP_TELEGRAM_APPROVER_IDS` | No | Comma-separated Telegram user IDs allowed to approve/reject (all users if unset) |
-| `REMOTE_OP_TIMEOUT` | No | Approval timeout in seconds (default: `120`) |
+| Variable                          | Required | Description                                                                      |
+| --------------------------------- | -------- | -------------------------------------------------------------------------------- |
+| `REMOTE_OP_TELEGRAM_BOT_TOKEN`    | Yes      | Telegram bot token for sending approval requests                                 |
+| `REMOTE_OP_TELEGRAM_CHAT_ID`      | Yes      | Telegram chat ID to send approval messages to                                    |
+| `REMOTE_OP_TELEGRAM_APPROVER_IDS` | No       | Comma-separated Telegram user IDs allowed to approve/reject (all users if unset) |
+| `REMOTE_OP_TIMEOUT`               | No       | Approval timeout in seconds (default: `120`)                                     |
 
 The MCP server also needs the actual secrets loaded into its environment (the
 ones referenced by `op://` URIs in your `.env.tpl` files). Use `op run` to
@@ -136,11 +136,11 @@ op-remote run \
 
 ### MCP tools
 
-| Tool | Description |
-| --- | --- |
-| `request_token` | Returns a one-time token and Unix socket path for authenticating with the CLI |
-| `resume` | Request to resume a stopped session (requires Telegram approval) |
-| `disable_auto_approve` | Turn off auto-approval, requiring Telegram approval for future requests |
+| Tool                   | Description                                                                   |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| `request_token`        | Returns a one-time token and Unix socket path for authenticating with the CLI |
+| `resume`               | Request to resume a stopped session (requires Telegram approval)              |
+| `disable_auto_approve` | Turn off auto-approval, requiring Telegram approval for future requests       |
 
 ### Telegram approval buttons
 

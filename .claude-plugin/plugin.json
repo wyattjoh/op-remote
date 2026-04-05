@@ -8,10 +8,7 @@
   "mcpServers": {
     "op-remote": {
       "command": "npx",
-      "args": [
-        "@wyattjoh/op-remote@0.3.1",
-        "serve"
-      ]
+      "args": ["@wyattjoh/op-remote@0.3.1", "serve"]
     }
   }
 }
