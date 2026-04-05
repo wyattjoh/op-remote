@@ -24,28 +24,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-  sync-plugin-version:
-    needs: release-please
-    if: ${{ needs.release-please.outputs.releases_created != 'true' && needs.release-please.outputs.pr != '' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ fromJSON(needs.release-please.outputs.pr).headBranchName }}
-
-      - name: Get version from package.json
-        id: version
-        run: echo "version=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
-
-      - uses: wyattjoh/json-version-update@v1
-        with:
-          file: .claude-plugin/plugin.json
-          jsonpath: '.mcpServers["op-remote"].args[0]'
-          template: "@wyattjoh/op-remote@${version}"
-          version: ${{ steps.version.outputs.version }}
-
   publish:
     needs: release-please
     if: ${{ needs.release-please.outputs.releases_created == 'true' }}
