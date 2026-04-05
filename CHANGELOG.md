@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/wyattjoh/op-remote/compare/op-remote-v0.3.0...op-remote-v0.3.1) (2026-04-05)
+
+
+### Bug Fixes
+
+* use release-please extra-files for plugin.json args version sync ([39b72a2](https://github.com/wyattjoh/op-remote/commit/39b72a2a6c1884be9956291c1348388e71547b55))
+
 ## [0.3.0](https://github.com/wyattjoh/op-remote/compare/op-remote-v0.2.2...op-remote-v0.3.0) (2026-04-04)
 
 
