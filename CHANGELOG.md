@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/wyattjoh/op-remote/compare/op-remote-v0.3.1...op-remote-v0.4.0) (2026-04-06)
+
+
+### Features
+
+* add userConfig for Telegram credentials in plugin manifest ([d2b523c](https://github.com/wyattjoh/op-remote/commit/d2b523cfe0e2e11924bfb7e82cd2c0d3c9575c35))
+
 ## [0.3.1](https://github.com/wyattjoh/op-remote/compare/op-remote-v0.3.0...op-remote-v0.3.1) (2026-04-05)
 
 
