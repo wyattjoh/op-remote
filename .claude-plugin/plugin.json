@@ -5,10 +5,34 @@
   "author": {
     "name": "Wyatt Johnson"
   },
+  "userConfig": {
+    "telegram_bot_token": {
+      "description": "Telegram bot token for sending approval requests",
+      "sensitive": true
+    },
+    "telegram_chat_id": {
+      "description": "Telegram chat ID where approval requests are sent",
+      "sensitive": false
+    },
+    "telegram_approver_ids": {
+      "description": "Comma-separated Telegram user IDs allowed to approve (optional)",
+      "sensitive": false
+    },
+    "timeout": {
+      "description": "Timeout in seconds for approval requests (default: 120)",
+      "sensitive": false
+    }
+  },
   "mcpServers": {
     "op-remote": {
       "command": "npx",
-      "args": ["@wyattjoh/op-remote@0.3.1", "serve"]
+      "args": ["@wyattjoh/op-remote@0.3.1", "serve"],
+      "env": {
+        "REMOTE_OP_TELEGRAM_BOT_TOKEN": "${user_config.telegram_bot_token}",
+        "REMOTE_OP_TELEGRAM_CHAT_ID": "${user_config.telegram_chat_id}",
+        "REMOTE_OP_TELEGRAM_APPROVER_IDS": "${user_config.telegram_approver_ids}",
+        "REMOTE_OP_TIMEOUT": "${user_config.timeout}"
+      }
     }
   }
 }
