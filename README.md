@@ -20,6 +20,19 @@ runtime without exposing them in plaintext config files or conversation context.
 
 ## Install
 
+### Claude Code Plugin (Recommended)
+
+Install via the plugin marketplace:
+
+```shell
+/plugin marketplace add wyattjoh/claude-code-marketplace
+/plugin install op-remote@wyattjoh-marketplace
+```
+
+Then configure the required environment variables in your MCP server settings.
+
+### npm (global)
+
 ```bash
 npm install -g @wyattjoh/op-remote
 ```
