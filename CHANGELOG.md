@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/wyattjoh/op-remote/compare/op-remote-v0.4.0...op-remote-v0.4.1) (2026-04-06)
+
+
+### Bug Fixes
+
+* add required type and title fields to userConfig entries ([f748fac](https://github.com/wyattjoh/op-remote/commit/f748fac702f6112896c65ce38b30dac9fa6f63d4))
+
 ## [0.4.0](https://github.com/wyattjoh/op-remote/compare/op-remote-v0.3.1...op-remote-v0.4.0) (2026-04-06)
 
 
