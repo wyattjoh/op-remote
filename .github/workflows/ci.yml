@@ -16,3 +16,12 @@ jobs:
       - run: bun install --frozen-lockfile
 
       - run: bun run check
+
+  validate-plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: npm install -g @anthropic-ai/claude-code
+
+      - run: claude plugin validate .
