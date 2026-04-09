@@ -59,4 +59,5 @@ jobs:
           plugin-name: op-remote
           version: ${{ needs.release-please.outputs.version }}
           ref: ${{ needs.release-please.outputs.tag_name }}
+          sha: ${{ github.sha }}
           token: ${{ secrets.MARKETPLACE_PAT }}
