@@ -34,10 +34,7 @@
   "mcpServers": {
     "op-remote": {
       "command": "npx",
-      "args": [
-        "@wyattjoh/op-remote@0.4.1",
-        "serve"
-      ],
+      "args": ["@wyattjoh/op-remote@0.4.1", "serve", "--env-file=.env.tpl"],
       "env": {
         "REMOTE_OP_TELEGRAM_BOT_TOKEN": "${user_config.telegram_bot_token}",
         "REMOTE_OP_TELEGRAM_CHAT_ID": "${user_config.telegram_chat_id}",

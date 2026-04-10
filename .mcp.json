@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "op-remote": {
+      "command": "op",
+      "args": [
+        "run",
+        "--account",
+        "my.1password.com",
+        "--env-file=.env.tpl",
+        "--",
+        "bun",
+        "src/cli.ts",
+        "serve",
+        "--env-file=.env.tpl.example"
+      ],
+      "env": {
+        "OP_ACCOUNT": "my.1password.com"
+      }
+    }
+  }
+}

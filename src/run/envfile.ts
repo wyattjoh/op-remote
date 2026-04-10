@@ -1,12 +1,16 @@
+import type { SecretVar } from "../protocol.ts";
+
+export type { SecretVar };
+
 export interface ParsedEnvFile {
-  /** Env var names whose values are op:// references. */
-  secretVars: string[];
+  /** Env vars whose values are op:// references. */
+  secretVars: SecretVar[];
   /** Env vars with plain (non-secret) values. */
   plainVars: Record<string, string>;
 }
 
 export function parseEnvFile(content: string): ParsedEnvFile {
-  const secretVars: string[] = [];
+  const secretVars: SecretVar[] = [];
   const plainVars: Record<string, string> = {};
 
   for (const rawLine of content.split("\n")) {
@@ -30,7 +34,7 @@ export function parseEnvFile(content: string): ParsedEnvFile {
     const value = rawValue.replace(/^(['"])(.*)\1$/, "$2");
 
     if (value.startsWith("op://")) {
-      secretVars.push(key);
+      secretVars.push({ name: key, ref: value });
     } else {
       plainVars[key] = value;
     }

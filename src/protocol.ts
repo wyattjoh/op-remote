@@ -1,7 +1,14 @@
+export interface SecretVar {
+  /** The environment variable name. */
+  name: string;
+  /** The op:// URI referencing the secret. */
+  ref: string;
+}
+
 /** Sent by the CLI to the MCP server over the Unix socket. */
 export interface SocketRequest {
   token: string;
-  envVars: string[];
+  envVars: SecretVar[];
   command: string[];
   cwd: string;
   reason: string;

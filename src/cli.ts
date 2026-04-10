@@ -7,7 +7,9 @@ const [subcommand] = process.argv.slice(2);
 switch (subcommand) {
   case "serve": {
     const { startServer } = await import("./serve/server.ts");
-    await startServer();
+    const envFileArg = process.argv.slice(3).find((a) => a.startsWith("--env-file="));
+    const envFile = envFileArg?.slice("--env-file=".length);
+    await startServer({ envFile });
     break;
   }
   case "run": {

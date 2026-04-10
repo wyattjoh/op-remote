@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -37,7 +38,65 @@ function readConfig(): ServerConfig {
   return { telegramBotToken: botToken, telegramChatId: chatId, timeoutMs, telegramApproverIds };
 }
 
-export async function startServer(): Promise<void> {
+/**
+ * Reads an env file and resolves all op:// references into process.env in a
+ * single `op run` invocation at startup, while the user is present and can
+ * authenticate with 1Password. Missing file is silently ignored so the plugin
+ * works for projects without a .env.tpl.
+ */
+async function loadEnvFile(envFile: string): Promise<void> {
+  const file = Bun.file(envFile);
+  if (!(await file.exists())) return;
+
+  const { readEnvFile } = await import("../run/envfile.ts");
+  const { secretVars } = await readEnvFile(envFile);
+  if (secretVars.length === 0) return;
+
+  const names = new Set(secretVars.map((v) => v.name));
+
+  // Resolve all op:// references in one shot via `op run -- env`.
+  const resolved = await new Promise<Record<string, string>>((resolve, reject) => {
+    const child = spawn("op", ["run", `--env-file=${envFile}`, "--", "env"], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+
+    child.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(`op run failed (exit code ${code})`));
+        return;
+      }
+      const env: Record<string, string> = {};
+      for (const line of stdout.split("\n")) {
+        const idx = line.indexOf("=");
+        if (idx === -1) continue;
+        const key = line.slice(0, idx);
+        if (names.has(key)) {
+          env[key] = line.slice(idx + 1);
+        }
+      }
+      resolve(env);
+    });
+
+    child.on("error", (err) => {
+      reject(new Error(`Failed to start op: ${err.message}`));
+    });
+  });
+
+  for (const [name, value] of Object.entries(resolved)) {
+    process.env[name] = value;
+  }
+}
+
+export async function startServer(opts: { envFile?: string } = {}): Promise<void> {
+  if (opts.envFile) {
+    await loadEnvFile(opts.envFile);
+  }
+
   const config = readConfig();
   const tokens = new TokenStore(config.timeoutMs);
 
@@ -48,12 +107,12 @@ export async function startServer(): Promise<void> {
   // Socket handler that resolves secrets from process.env.
   const socketHandler: SocketHandler = {
     async handleRequest(req: SocketRequest): Promise<SocketResponse> {
-      // Check that all requested env vars exist.
-      const missing = req.envVars.filter((v) => !(v in process.env));
+      // Check that all requested env vars were loaded at startup.
+      const missing = req.envVars.filter(({ name }) => !(name in process.env));
       if (missing.length > 0) {
         return {
           status: "rejected",
-          reason: `unknown env vars: ${missing.join(", ")}`,
+          reason: `unknown env vars: ${missing.map((v) => v.name).join(", ")}`,
         };
       }
 
@@ -70,7 +129,7 @@ export async function startServer(): Promise<void> {
           command: req.command,
           cwd: req.cwd,
           reason: req.reason,
-          secretNames: req.envVars,
+          secretNames: req.envVars.map((v) => v.name),
         });
 
         if (result.action === "auto_approve") {
@@ -83,9 +142,9 @@ export async function startServer(): Promise<void> {
         }
       }
 
-      // Resolve secrets from own environment.
+      // Return secrets from process.env (loaded at startup).
       const env: Record<string, string> = {};
-      for (const name of req.envVars) {
+      for (const { name } of req.envVars) {
         env[name] = process.env[name] ?? "";
       }
 
