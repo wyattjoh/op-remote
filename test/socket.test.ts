@@ -33,7 +33,7 @@ describe("socket client/server", () => {
 
     const res = await sendRequest(sockPath, {
       token,
-      envVars: ["MY_SECRET"],
+      envVars: [{ name: "MY_SECRET", ref: "op://Dev/item/field" }],
       command: ["echo", "hello"],
       cwd: "/tmp",
       reason: "test",
@@ -82,22 +82,18 @@ describe("socket client/server", () => {
     cleanup = close;
     await Bun.sleep(50);
 
-    const res1 = await sendRequest(sockPath, {
+    const req = {
       token,
       envVars: [],
       command: ["true"],
       cwd: "/tmp",
       reason: "test",
-    });
+    };
+
+    const res1 = await sendRequest(sockPath, req);
     expect(res1.status).toBe("approved");
 
-    const res2 = await sendRequest(sockPath, {
-      token,
-      envVars: [],
-      command: ["true"],
-      cwd: "/tmp",
-      reason: "test",
-    });
+    const res2 = await sendRequest(sockPath, req);
     expect(res2.status).toBe("rejected");
   });
 });

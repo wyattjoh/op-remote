@@ -10,7 +10,10 @@ describe("parseEnvFile", () => {
 
     const result = parseEnvFile(content);
 
-    expect(result.secretVars).toEqual(["CLERK_API_KEY", "APP_ID"]);
+    expect(result.secretVars).toEqual([
+      { name: "CLERK_API_KEY", ref: "op://AI Enablement/Clerk/key" },
+      { name: "APP_ID", ref: "op://Development/app/id" },
+    ]);
     expect(result.plainVars).toEqual({});
   });
 
@@ -19,7 +22,7 @@ describe("parseEnvFile", () => {
 
     const result = parseEnvFile(content);
 
-    expect(result.secretVars).toEqual(["SECRET"]);
+    expect(result.secretVars).toEqual([{ name: "SECRET", ref: "op://Dev/item/field" }]);
     expect(result.plainVars).toEqual({ APP_URL: "https://example.com" });
   });
 
@@ -33,26 +36,26 @@ describe("parseEnvFile", () => {
 
     const result = parseEnvFile(content);
 
-    expect(result.secretVars).toEqual(["KEY"]);
+    expect(result.secretVars).toEqual([{ name: "KEY", ref: "op://Vault/item/field" }]);
     expect(result.plainVars).toEqual({});
   });
 
   test("handles unquoted values", () => {
     const content = "KEY=op://Vault/item/field";
     const result = parseEnvFile(content);
-    expect(result.secretVars).toEqual(["KEY"]);
+    expect(result.secretVars).toEqual([{ name: "KEY", ref: "op://Vault/item/field" }]);
   });
 
   test("handles single-quoted values", () => {
     const content = "KEY='op://Vault/item/field'";
     const result = parseEnvFile(content);
-    expect(result.secretVars).toEqual(["KEY"]);
+    expect(result.secretVars).toEqual([{ name: "KEY", ref: "op://Vault/item/field" }]);
   });
 
   test("handles export prefix", () => {
     const content = 'export KEY="op://Vault/item/field"';
     const result = parseEnvFile(content);
-    expect(result.secretVars).toEqual(["KEY"]);
+    expect(result.secretVars).toEqual([{ name: "KEY", ref: "op://Vault/item/field" }]);
   });
 
   test("returns empty for empty file", () => {
