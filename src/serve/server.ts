@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import type { SocketRequest, SocketResponse } from "../protocol.ts";
+import { createSession } from "./session.ts";
 import { type SocketHandler, createSocketServer } from "./socket.ts";
 import { requestResumeApproval, requestRunApproval } from "./telegram.ts";
 import { TokenStore } from "./tokens.ts";
@@ -110,59 +111,34 @@ export async function startServer(opts: { envFile?: string } = {}): Promise<void
   const config = readConfig();
   const tokens = new TokenStore(config.timeoutMs);
 
-  // State.
-  let stopped = false;
-  let autoApprove = false;
+  const telegramConfig = {
+    botToken: config.telegramBotToken,
+    chatId: config.telegramChatId,
+    timeoutMs: config.timeoutMs,
+    approverIds: config.telegramApproverIds,
+  };
 
-  // Socket handler that resolves secrets from process.env.
+  const session = createSession(
+    (input) => requestRunApproval(telegramConfig, input),
+    () => requestResumeApproval(telegramConfig),
+  );
+
+  // Socket handler that resolves secrets from process.env via the session.
   const socketHandler: SocketHandler = {
-    async handleRequest(req: SocketRequest): Promise<SocketResponse> {
-      // Check that all requested env vars were loaded at startup.
-      const missing = req.envVars.filter(({ name }) => !(name in process.env));
-      if (missing.length > 0) {
-        return {
-          status: "rejected",
-          reason: `unknown env vars: ${missing.map((v) => v.name).join(", ")}`,
-        };
-      }
-
-      // If auto-approve is on, skip Telegram.
-      if (!autoApprove) {
-        const telegramConfig = {
-          botToken: config.telegramBotToken,
-          chatId: config.telegramChatId,
-          timeoutMs: config.timeoutMs,
-          approverIds: config.telegramApproverIds,
-        };
-
-        const result = await requestRunApproval(telegramConfig, {
-          command: req.command,
-          cwd: req.cwd,
-          reason: req.reason,
-          secretNames: req.envVars.map((v) => v.name),
-        });
-
-        if (result.action === "auto_approve") {
-          autoApprove = true;
-        } else if (result.action === "stop") {
-          stopped = true;
-          return { status: "rejected", reason: result.reason ?? "stopped" };
-        } else if (result.action === "reject") {
-          return { status: "rejected", reason: result.reason ?? "rejected" };
+    handleRequest(req: SocketRequest): Promise<SocketResponse> {
+      return session.handleRequest(req, (names) => {
+        const missing: string[] = [];
+        const env: Record<string, string> = {};
+        for (const name of names) {
+          const value = process.env[name];
+          if (value === undefined) {
+            missing.push(name);
+          } else {
+            env[name] = value;
+          }
         }
-      }
-
-      // Return secrets from process.env (loaded at startup).
-      const env: Record<string, string> = {};
-      for (const { name } of req.envVars) {
-        const value = process.env[name];
-        if (value === undefined) {
-          return { status: "rejected", reason: `env var not available: ${name}` };
-        }
-        env[name] = value;
-      }
-
-      return { status: "approved", env };
+        return missing.length > 0 ? { ok: false, missing } : { ok: true, env };
+      });
     },
   };
 
@@ -184,7 +160,7 @@ export async function startServer(opts: { envFile?: string } = {}): Promise<void
       inputSchema: z.object({}),
     },
     async () => {
-      if (stopped) {
+      if (session.isStopped()) {
         return {
           isError: true,
           content: [
@@ -218,35 +194,23 @@ export async function startServer(opts: { envFile?: string } = {}): Promise<void
       inputSchema: z.object({}),
     },
     async () => {
-      if (!stopped) {
+      const result = await session.tryResume();
+      if (result.kind === "not-stopped") {
         return {
           content: [{ type: "text" as const, text: "Session is not stopped." }],
         };
       }
-
-      const telegramConfig = {
-        botToken: config.telegramBotToken,
-        chatId: config.telegramChatId,
-        timeoutMs: config.timeoutMs,
-        approverIds: config.telegramApproverIds,
-      };
-
-      const result = await requestResumeApproval(telegramConfig);
-
-      if (result.action === "approve") {
-        stopped = false;
+      if (result.kind === "resumed") {
         return {
           content: [{ type: "text" as const, text: "Session resumed." }],
         };
       }
-
-      const reason = result.reason ?? "resume denied";
       return {
         isError: true,
         content: [
           {
             type: "text" as const,
-            text: `Resume denied: ${reason}`,
+            text: `Resume denied: ${result.reason}`,
           },
         ],
       };
@@ -263,7 +227,7 @@ export async function startServer(opts: { envFile?: string } = {}): Promise<void
       inputSchema: z.object({}),
     },
     async () => {
-      autoApprove = false;
+      session.disableAutoApprove();
       return {
         content: [
           {
