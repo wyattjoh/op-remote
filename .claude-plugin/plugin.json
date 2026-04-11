@@ -1,6 +1,6 @@
 {
   "name": "op-remote",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Remote 1Password secret access with Telegram approval for AI agents",
   "author": {
     "name": "Wyatt Johnson"
@@ -34,7 +34,11 @@
   "mcpServers": {
     "op-remote": {
       "command": "npx",
-      "args": ["@wyattjoh/op-remote@0.5.0", "serve", "--env-file=.env.tpl"],
+      "args": [
+        "@wyattjoh/op-remote@0.5.1",
+        "serve",
+        "--env-file=.env.tpl"
+      ],
       "env": {
         "REMOTE_OP_TELEGRAM_BOT_TOKEN": "${user_config.telegram_bot_token}",
         "REMOTE_OP_TELEGRAM_CHAT_ID": "${user_config.telegram_chat_id}",
