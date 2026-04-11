@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.1](https://github.com/wyattjoh/op-remote/compare/op-remote-v0.5.0...op-remote-v0.5.1) (2026-04-11)
+
+
+### Bug Fixes
+
+* replace Bun APIs with node equivalents ([5825070](https://github.com/wyattjoh/op-remote/commit/5825070a4d3a4a9963a336e71fbc809922f988af))
+* **telegram:** send force-reply prompt as a new message ([bde1474](https://github.com/wyattjoh/op-remote/commit/bde14746c193436afa7155aecdd00be7f780eec0))
+
 ## [0.5.0](https://github.com/wyattjoh/op-remote/compare/op-remote-v0.4.1...op-remote-v0.5.0) (2026-04-11)
 
 
