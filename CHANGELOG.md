@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/wyattjoh/op-remote/compare/op-remote-v0.5.1...op-remote-v0.5.2) (2026-04-11)
+
+
+### Miscellaneous Chores
+
+* release 0.5.2 ([368a82c](https://github.com/wyattjoh/op-remote/commit/368a82c8e0271ef39da69743be04b983384dc1f4))
+
 ## [0.5.1](https://github.com/wyattjoh/op-remote/compare/op-remote-v0.5.0...op-remote-v0.5.1) (2026-04-11)
 
 
