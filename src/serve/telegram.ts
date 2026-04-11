@@ -245,6 +245,118 @@ function fireAndForget(promise: Promise<unknown>, context: string): void {
   });
 }
 
+function editMessage(config: TelegramConfig, messageId: number, text: string, context: string) {
+  fireAndForget(
+    apiCall(config.botToken, "editMessageText", {
+      chat_id: config.chatId,
+      message_id: messageId,
+      text,
+    }),
+    context,
+  );
+}
+
+function answerCallback(config: TelegramConfig, queryId: string, text?: string) {
+  fireAndForget(
+    apiCall(config.botToken, "answerCallbackQuery", {
+      callback_query_id: queryId,
+      ...(text ? { text } : {}),
+    }),
+    text ? "answerCallbackQuery(unauthorized)" : "answerCallbackQuery(ack)",
+  );
+}
+
+interface ApprovalContext {
+  config: TelegramConfig;
+  messageId: number;
+  nonce: string;
+  finish: (result: ApprovalResult) => void;
+}
+
+type CallbackAction = "approve" | "auto_approve" | "reject" | "stop";
+
+/**
+ * Handles a button press on the original approval message. Returns the next
+ * phase: "done" if we resolved the promise, "await-reason" if we now need a
+ * text reply, or "ignore" if the update didn't belong to us.
+ */
+type CallbackOutcome =
+  | { phase: "ignore" }
+  | { phase: "done" }
+  | { phase: "await-reason"; action: "reject" | "stop" };
+
+function handleCallbackQuery(ctx: ApprovalContext, update: TelegramUpdate): CallbackOutcome {
+  const query = update.callback_query;
+  if (!query?.data?.startsWith(`${ctx.nonce}:`)) {
+    return { phase: "ignore" };
+  }
+
+  if (!isAuthorizedUser(ctx.config, query.from?.id)) {
+    answerCallback(ctx.config, query.id, "You are not authorized to respond to this request.");
+    return { phase: "done" };
+  }
+
+  const action = query.data.slice(ctx.nonce.length + 1) as CallbackAction;
+  answerCallback(ctx.config, query.id);
+
+  if (action === "approve" || action === "auto_approve") {
+    const label = action === "auto_approve" ? "Auto-approved" : "Approved";
+    editMessage(
+      ctx.config,
+      ctx.messageId,
+      `\u2705 ${label} at ${new Date().toLocaleTimeString()}`,
+      "editMessageText(approved)",
+    );
+    ctx.finish({ action });
+    return { phase: "done" };
+  }
+
+  // Reject or Stop: update the original message, then post a separate
+  // force_reply prompt. editMessageText cannot carry a force_reply markup
+  // (Telegram only allows inline keyboards there).
+  const rejection = action === "stop" ? "stop" : "reject";
+  const label = rejection === "stop" ? "Stopped" : "Rejected";
+  editMessage(
+    ctx.config,
+    ctx.messageId,
+    `\u274C ${label}. Reply with a reason.`,
+    "editMessageText(awaiting-reason)",
+  );
+  return { phase: "await-reason", action: rejection };
+}
+
+/**
+ * Handles a text reply to the force-reply prompt. Returns true if the update
+ * was the user's reason reply and the approval is now complete.
+ */
+function handleReasonReply(
+  ctx: ApprovalContext,
+  update: TelegramUpdate,
+  rejection: "reject" | "stop",
+  reasonPromptMessageId: number | undefined,
+): boolean {
+  const replyTo = update.message?.reply_to_message?.message_id;
+  const matchesPrompt =
+    replyTo !== undefined && (replyTo === ctx.messageId || replyTo === reasonPromptMessageId);
+  if (!matchesPrompt || !update.message?.text) {
+    return false;
+  }
+  if (!isAuthorizedUser(ctx.config, update.message.from?.id)) {
+    return false;
+  }
+
+  const reason = update.message.text;
+  const label = rejection === "stop" ? "Stopped" : "Rejected";
+  editMessage(
+    ctx.config,
+    ctx.messageId,
+    `\u274C ${label}: ${reason}`,
+    "editMessageText(reason-accepted)",
+  );
+  ctx.finish({ action: rejection, reason });
+  return true;
+}
+
 function awaitApproval(
   config: TelegramConfig,
   messageId: number,
@@ -258,16 +370,24 @@ function awaitApproval(
     // come back as a reply to this message rather than the original request.
     let reasonPromptMessageId: number | undefined;
 
+    const cleanup = () => {
+      clearTimeout(timer);
+      unregister();
+    };
+
+    const ctx: ApprovalContext = {
+      config,
+      messageId,
+      nonce,
+      finish: (result) => {
+        cleanup();
+        resolve(result);
+      },
+    };
+
     const timer = setTimeout(() => {
       cleanup();
-      fireAndForget(
-        apiCall(config.botToken, "editMessageText", {
-          chat_id: config.chatId,
-          message_id: messageId,
-          text: "\u23F0 Timed out",
-        }),
-        "editMessageText(timeout)",
-      );
+      editMessage(config, messageId, "\u23F0 Timed out", "editMessageText(timeout)");
       resolve({ action: "reject", reason: "permission request timed out" });
     }, config.timeoutMs);
 
@@ -276,90 +396,22 @@ function awaitApproval(
         return false;
       }
 
-      // Phase 2: waiting for a text reply with the rejection reason.
       if (waitingForReason) {
-        const replyTo = update.message?.reply_to_message?.message_id;
-        const matchesReasonPrompt =
-          replyTo !== undefined && (replyTo === messageId || replyTo === reasonPromptMessageId);
-        if (
-          matchesReasonPrompt &&
-          update.message?.text &&
-          isAuthorizedUser(config, update.message.from?.id)
-        ) {
-          const reason = update.message.text;
-          cleanup();
-          const label = rejectionAction === "stop" ? "Stopped" : "Rejected";
-          fireAndForget(
-            apiCall(config.botToken, "editMessageText", {
-              chat_id: config.chatId,
-              message_id: messageId,
-              text: `\u274C ${label}: ${reason}`,
-            }),
-            "editMessageText(reason-accepted)",
-          );
-          resolve({ action: rejectionAction, reason });
-          return true;
-        }
-        return false;
+        return handleReasonReply(ctx, update, rejectionAction, reasonPromptMessageId);
       }
 
-      // Phase 1: waiting for a callback query (button press).
-      if (!update.callback_query?.data?.startsWith(`${nonce}:`)) {
+      const result = handleCallbackQuery(ctx, update);
+      if (result.phase === "ignore") {
         return false;
       }
-
-      // Reject button presses from unauthorized users.
-      if (!isAuthorizedUser(config, update.callback_query.from?.id)) {
-        fireAndForget(
-          apiCall(config.botToken, "answerCallbackQuery", {
-            callback_query_id: update.callback_query.id,
-            text: "You are not authorized to respond to this request.",
-          }),
-          "answerCallbackQuery(unauthorized)",
-        );
+      if (result.phase === "done") {
         return true;
       }
 
-      const action = update.callback_query.data.slice(nonce.length + 1);
-
-      fireAndForget(
-        apiCall(config.botToken, "answerCallbackQuery", {
-          callback_query_id: update.callback_query.id,
-        }),
-        "answerCallbackQuery(ack)",
-      );
-
-      if (action === "approve" || action === "auto_approve") {
-        cleanup();
-        const label = action === "auto_approve" ? "Auto-approved" : "Approved";
-        fireAndForget(
-          apiCall(config.botToken, "editMessageText", {
-            chat_id: config.chatId,
-            message_id: messageId,
-            text: `\u2705 ${label} at ${new Date().toLocaleTimeString()}`,
-          }),
-          "editMessageText(approved)",
-        );
-        resolve({ action: action as ApprovalResult["action"] });
-        return true;
-      }
-
-      // Reject or Stop: update the original message text, then post a new
-      // message with force_reply so Telegram prompts the user to type a
-      // reason. editMessageText cannot carry a force_reply markup (the
-      // Telegram API only allows inline keyboards there), so the prompt has
-      // to be a separate message.
-      rejectionAction = action === "stop" ? "stop" : "reject";
+      // result.phase === "await-reason": transition to phase 2 and post the
+      // force-reply prompt as a new message.
       waitingForReason = true;
-      const label = action === "stop" ? "Stopped" : "Rejected";
-      fireAndForget(
-        apiCall(config.botToken, "editMessageText", {
-          chat_id: config.chatId,
-          message_id: messageId,
-          text: `\u274C ${label}. Reply with a reason.`,
-        }),
-        "editMessageText(awaiting-reason)",
-      );
+      rejectionAction = result.action;
       fireAndForget(
         apiCall<TelegramMessage>(config.botToken, "sendMessage", {
           chat_id: config.chatId,
@@ -373,10 +425,5 @@ function awaitApproval(
       );
       return true;
     });
-
-    const cleanup = () => {
-      clearTimeout(timer);
-      unregister();
-    };
   });
 }
