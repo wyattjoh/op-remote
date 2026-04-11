@@ -1,11 +1,24 @@
 import { randomUUID } from "node:crypto";
 
-export class TokenStore {
-  private tokens = new Map<string, { expiry: number; reserved: boolean }>();
-  private ttlMs: number;
+interface TokenEntry {
+  expiry: number;
+  reserved: boolean;
+}
 
-  constructor(ttlMs: number) {
-    this.ttlMs = ttlMs;
+export class TokenStore {
+  private tokens = new Map<string, TokenEntry>();
+
+  constructor(private readonly ttlMs: number) {}
+
+  /** Fetch a live entry, evicting expired ones. Returns undefined if missing or expired. */
+  private live(token: string): TokenEntry | undefined {
+    const entry = this.tokens.get(token);
+    if (!entry) return undefined;
+    if (Date.now() > entry.expiry) {
+      this.tokens.delete(token);
+      return undefined;
+    }
+    return entry;
   }
 
   create(): string {
@@ -15,15 +28,7 @@ export class TokenStore {
   }
 
   validate(token: string): boolean {
-    const entry = this.tokens.get(token);
-    if (!entry) {
-      return false;
-    }
-    if (Date.now() > entry.expiry) {
-      this.tokens.delete(token);
-      return false;
-    }
-    return true;
+    return this.live(token) !== undefined;
   }
 
   /**
@@ -32,17 +37,8 @@ export class TokenStore {
    * preventing concurrent use of the same token.
    */
   reserve(token: string): boolean {
-    const entry = this.tokens.get(token);
-    if (!entry) {
-      return false;
-    }
-    if (Date.now() > entry.expiry) {
-      this.tokens.delete(token);
-      return false;
-    }
-    if (entry.reserved) {
-      return false;
-    }
+    const entry = this.live(token);
+    if (!entry || entry.reserved) return false;
     entry.reserved = true;
     return true;
   }
@@ -50,15 +46,11 @@ export class TokenStore {
   /** Release a previously reserved token so it can be reserved again. */
   release(token: string): void {
     const entry = this.tokens.get(token);
-    if (entry) {
-      entry.reserved = false;
-    }
+    if (entry) entry.reserved = false;
   }
 
   consume(token: string): boolean {
-    if (!this.validate(token)) {
-      return false;
-    }
+    if (!this.live(token)) return false;
     this.tokens.delete(token);
     return true;
   }

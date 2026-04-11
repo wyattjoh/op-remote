@@ -60,25 +60,29 @@ export function createSession(
         };
       }
 
-      if (!autoApprove) {
-        const result = await runApproval({
-          command: req.command,
-          cwd: req.cwd,
-          reason: req.reason,
-          secretNames: names,
-        });
-
-        if (result.action === "auto_approve") {
-          autoApprove = true;
-        } else if (result.action === "stop") {
-          stopped = true;
-          return { status: "rejected", reason: result.reason ?? "stopped" };
-        } else if (result.action === "reject") {
-          return { status: "rejected", reason: result.reason ?? "rejected" };
-        }
+      if (autoApprove) {
+        return { status: "approved", env: resolved.env };
       }
 
-      return { status: "approved", env: resolved.env };
+      const result = await runApproval({
+        command: req.command,
+        cwd: req.cwd,
+        reason: req.reason,
+        secretNames: names,
+      });
+
+      switch (result.action) {
+        case "approve":
+          return { status: "approved", env: resolved.env };
+        case "auto_approve":
+          autoApprove = true;
+          return { status: "approved", env: resolved.env };
+        case "stop":
+          stopped = true;
+          return { status: "rejected", reason: result.reason ?? "stopped" };
+        case "reject":
+          return { status: "rejected", reason: result.reason ?? "rejected" };
+      }
     },
 
     async tryResume() {
