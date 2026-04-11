@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.3](https://github.com/wyattjoh/op-remote/compare/op-remote-v0.5.2...op-remote-v0.5.3) (2026-04-11)
+
+
+### Bug Fixes
+
+* remove unused .prettierignore ([fbdd72f](https://github.com/wyattjoh/op-remote/commit/fbdd72fb39e17ce42a7ba6ad3e24b6b623a89272))
+
 ## [0.5.2](https://github.com/wyattjoh/op-remote/compare/op-remote-v0.5.1...op-remote-v0.5.2) (2026-04-11)
 
 
