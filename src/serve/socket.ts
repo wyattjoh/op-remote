@@ -53,67 +53,77 @@ export function createSocketServer(
 
   // Clean up on process exit.
   process.on("exit", close);
-  process.on("SIGINT", () => {
-    close();
-    process.exit(0);
-  });
-  process.on("SIGTERM", () => {
-    close();
-    process.exit(0);
-  });
+  for (const signal of ["SIGINT", "SIGTERM"] as const) {
+    process.on(signal, () => {
+      close();
+      process.exit(0);
+    });
+  }
 
   return { sockPath, close };
+}
+
+/**
+ * True once `chunks` concatenated form a complete JSON document. We probe on
+ * every chunk because Bun's node:net client drops incoming data after calling
+ * end(), so we can't wait for FIN to know the request is complete.
+ */
+function isCompleteJson(chunks: Uint8Array[]): boolean {
+  try {
+    JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function handleConnection(conn: NetSocket, tokens: TokenStore, handler: SocketHandler): void {
   const chunks: Uint8Array[] = [];
   let totalBytes = 0;
   let responded = false;
+  let responding = false;
 
-  const reject = (reason: string) => {
+  const sendResponse = (res: SocketResponse) => {
     if (responded) return;
     responded = true;
-    const res: SocketResponse = { status: "rejected", reason };
     conn.end(JSON.stringify(res));
   };
 
   const respond = async () => {
-    if (responded) return;
-    responded = true;
+    if (responded || responding) return;
+    responding = true;
+
+    let req: SocketRequest;
     try {
       const raw = Buffer.concat(chunks).toString("utf-8");
-      const req: SocketRequest = socketRequestSchema.parse(JSON.parse(raw));
-
-      // Atomically reserve the token (prevents concurrent use).
-      if (!tokens.reserve(req.token)) {
-        const res: SocketResponse = {
-          status: "rejected",
-          reason: "invalid or expired token",
-        };
-        conn.end(JSON.stringify(res));
-        return;
-      }
-
-      // Validate peer UID (defense in depth).
-      // node:net doesn't expose SO_PEERCRED on macOS, so we rely on
-      // socket file permissions (0600) as the primary guard.
-
-      try {
-        const response = await handler.handleRequest(req);
-        // Permanently consume the token after success.
-        tokens.consume(req.token);
-        conn.end(JSON.stringify(response));
-      } catch (err) {
-        // Release the reservation so the token can be retried.
-        tokens.release(req.token);
-        throw err;
-      }
+      req = socketRequestSchema.parse(JSON.parse(raw));
     } catch (err) {
-      const res: SocketResponse = {
+      sendResponse({
         status: "rejected",
         reason: `protocol error: ${err instanceof Error ? err.message : String(err)}`,
-      };
-      conn.end(JSON.stringify(res));
+      });
+      return;
+    }
+
+    // Atomically reserve the token (prevents concurrent use).
+    // Peer identity is guarded by 0600 socket file permissions; node:net
+    // doesn't expose SO_PEERCRED on macOS.
+    if (!tokens.reserve(req.token)) {
+      sendResponse({ status: "rejected", reason: "invalid or expired token" });
+      return;
+    }
+
+    try {
+      const response = await handler.handleRequest(req);
+      tokens.consume(req.token);
+      sendResponse(response);
+    } catch (err) {
+      // Release the reservation so the token can be retried.
+      tokens.release(req.token);
+      sendResponse({
+        status: "rejected",
+        reason: `protocol error: ${err instanceof Error ? err.message : String(err)}`,
+      });
     }
   };
 
@@ -121,28 +131,21 @@ function handleConnection(conn: NetSocket, tokens: TokenStore, handler: SocketHa
     totalBytes += chunk.length;
 
     if (totalBytes > MAX_REQUEST_BYTES) {
-      reject("request too large");
+      sendResponse({ status: "rejected", reason: "request too large" });
       conn.destroy();
       return;
     }
 
     chunks.push(chunk);
-    // Attempt to parse immediately after each chunk so the response can be
-    // sent before the client half-closes the connection. This is necessary
-    // because Bun's node:net client drops incoming data after calling end().
-    const raw = Buffer.concat(chunks).toString("utf-8");
-    try {
-      JSON.parse(raw);
-      // Valid JSON received, respond now without waiting for client FIN.
+    if (isCompleteJson(chunks)) {
       void respond();
-    } catch {
-      // Incomplete JSON; wait for more data.
     }
   });
 
+  // Fallback for the edge case where data arrives but isCompleteJson never
+  // returns true (e.g. malformed JSON) and the client then half-closes. Still
+  // needed because respond() surfaces the parse error back to the caller.
   conn.on("end", () => {
-    // Fallback: respond if we haven't already (e.g. data arrived all at once
-    // but JSON parse failed above, or the data event never fired).
     void respond();
   });
 }
