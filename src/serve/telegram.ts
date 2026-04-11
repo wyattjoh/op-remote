@@ -239,6 +239,12 @@ export async function requestResumeApproval(config: TelegramConfig): Promise<App
 // Approval state machine driven by shared poller
 // ---------------------------------------------------------------------------
 
+function fireAndForget(promise: Promise<unknown>, context: string): void {
+  promise.catch((err) => {
+    console.error(`[telegram] ${context} failed:`, err instanceof Error ? err.message : err);
+  });
+}
+
 function awaitApproval(
   config: TelegramConfig,
   messageId: number,
@@ -248,14 +254,20 @@ function awaitApproval(
     const deadline = Date.now() + config.timeoutMs;
     let waitingForReason = false;
     let rejectionAction: "reject" | "stop" = "reject";
+    // Set once the bot posts a force-reply prompt; the user's reason text will
+    // come back as a reply to this message rather than the original request.
+    let reasonPromptMessageId: number | undefined;
 
     const timer = setTimeout(() => {
       cleanup();
-      apiCall(config.botToken, "editMessageText", {
-        chat_id: config.chatId,
-        message_id: messageId,
-        text: "\u23F0 Timed out",
-      }).catch(() => {});
+      fireAndForget(
+        apiCall(config.botToken, "editMessageText", {
+          chat_id: config.chatId,
+          message_id: messageId,
+          text: "\u23F0 Timed out",
+        }),
+        "editMessageText(timeout)",
+      );
       resolve({ action: "reject", reason: "permission request timed out" });
     }, config.timeoutMs);
 
@@ -266,19 +278,25 @@ function awaitApproval(
 
       // Phase 2: waiting for a text reply with the rejection reason.
       if (waitingForReason) {
+        const replyTo = update.message?.reply_to_message?.message_id;
+        const matchesReasonPrompt =
+          replyTo !== undefined && (replyTo === messageId || replyTo === reasonPromptMessageId);
         if (
-          update.message?.reply_to_message?.message_id === messageId &&
-          update.message.text &&
+          matchesReasonPrompt &&
+          update.message?.text &&
           isAuthorizedUser(config, update.message.from?.id)
         ) {
           const reason = update.message.text;
           cleanup();
           const label = rejectionAction === "stop" ? "Stopped" : "Rejected";
-          void apiCall(config.botToken, "editMessageText", {
-            chat_id: config.chatId,
-            message_id: messageId,
-            text: `\u274C ${label}: ${reason}`,
-          });
+          fireAndForget(
+            apiCall(config.botToken, "editMessageText", {
+              chat_id: config.chatId,
+              message_id: messageId,
+              text: `\u274C ${label}: ${reason}`,
+            }),
+            "editMessageText(reason-accepted)",
+          );
           resolve({ action: rejectionAction, reason });
           return true;
         }
@@ -292,41 +310,67 @@ function awaitApproval(
 
       // Reject button presses from unauthorized users.
       if (!isAuthorizedUser(config, update.callback_query.from?.id)) {
-        void apiCall(config.botToken, "answerCallbackQuery", {
-          callback_query_id: update.callback_query.id,
-          text: "You are not authorized to respond to this request.",
-        });
+        fireAndForget(
+          apiCall(config.botToken, "answerCallbackQuery", {
+            callback_query_id: update.callback_query.id,
+            text: "You are not authorized to respond to this request.",
+          }),
+          "answerCallbackQuery(unauthorized)",
+        );
         return true;
       }
 
       const action = update.callback_query.data.slice(nonce.length + 1);
 
-      void apiCall(config.botToken, "answerCallbackQuery", {
-        callback_query_id: update.callback_query.id,
-      });
+      fireAndForget(
+        apiCall(config.botToken, "answerCallbackQuery", {
+          callback_query_id: update.callback_query.id,
+        }),
+        "answerCallbackQuery(ack)",
+      );
 
       if (action === "approve" || action === "auto_approve") {
         cleanup();
         const label = action === "auto_approve" ? "Auto-approved" : "Approved";
-        void apiCall(config.botToken, "editMessageText", {
-          chat_id: config.chatId,
-          message_id: messageId,
-          text: `\u2705 ${label} at ${new Date().toLocaleTimeString()}`,
-        });
+        fireAndForget(
+          apiCall(config.botToken, "editMessageText", {
+            chat_id: config.chatId,
+            message_id: messageId,
+            text: `\u2705 ${label} at ${new Date().toLocaleTimeString()}`,
+          }),
+          "editMessageText(approved)",
+        );
         resolve({ action: action as ApprovalResult["action"] });
         return true;
       }
 
-      // Reject or Stop: ask for reason via force reply, then wait for text.
+      // Reject or Stop: update the original message text, then post a new
+      // message with force_reply so Telegram prompts the user to type a
+      // reason. editMessageText cannot carry a force_reply markup (the
+      // Telegram API only allows inline keyboards there), so the prompt has
+      // to be a separate message.
       rejectionAction = action === "stop" ? "stop" : "reject";
       waitingForReason = true;
       const label = action === "stop" ? "Stopped" : "Rejected";
-      void apiCall(config.botToken, "editMessageText", {
-        chat_id: config.chatId,
-        message_id: messageId,
-        text: `\u274C ${label}. Reply with a reason:`,
-        reply_markup: { force_reply: true, selective: true },
-      });
+      fireAndForget(
+        apiCall(config.botToken, "editMessageText", {
+          chat_id: config.chatId,
+          message_id: messageId,
+          text: `\u274C ${label}. Reply with a reason.`,
+        }),
+        "editMessageText(awaiting-reason)",
+      );
+      fireAndForget(
+        apiCall<TelegramMessage>(config.botToken, "sendMessage", {
+          chat_id: config.chatId,
+          text: "Reply to this message with the reason:",
+          reply_to_message_id: messageId,
+          reply_markup: { force_reply: true, selective: true },
+        }).then((sent) => {
+          reasonPromptMessageId = sent.message_id;
+        }),
+        "sendMessage(force-reply-prompt)",
+      );
       return true;
     });
 

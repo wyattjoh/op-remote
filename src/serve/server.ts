@@ -97,6 +97,12 @@ async function loadEnvFile(envFile: string): Promise<void> {
 }
 
 export async function startServer(opts: { envFile?: string } = {}): Promise<void> {
+  // A Telegram hiccup or malformed update must never take the server down.
+  // Log and keep running so the in-flight socket handler can still respond.
+  process.on("unhandledRejection", (reason) => {
+    console.error("[op-remote] unhandled rejection:", reason);
+  });
+
   if (opts.envFile) {
     await loadEnvFile(opts.envFile);
   }
