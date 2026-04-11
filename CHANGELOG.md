@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/wyattjoh/op-remote/compare/op-remote-v0.4.1...op-remote-v0.5.0) (2026-04-11)
+
+
+### Features
+
+* load project secrets at server startup via op run ([3660e14](https://github.com/wyattjoh/op-remote/commit/3660e144451ce838e730a54b3ffb89c4361ce851))
+
+
+### Bug Fixes
+
+* **security:** harden socket and Telegram approval handling ([c16548d](https://github.com/wyattjoh/op-remote/commit/c16548d8ff5e541344d4f3a9a648582f60a65b37))
+
 ## [0.4.1](https://github.com/wyattjoh/op-remote/compare/op-remote-v0.4.0...op-remote-v0.4.1) (2026-04-06)
 
 
