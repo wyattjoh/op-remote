@@ -1,8 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { type Socket as NetSocket, createServer } from "node:net";
+import { z } from "zod";
 import type { SocketRequest, SocketResponse } from "../protocol.ts";
 import type { TokenStore } from "./tokens.ts";
+
+const socketRequestSchema = z.object({
+  token: z.string(),
+  envVars: z.array(z.object({ name: z.string(), ref: z.string() })),
+  command: z.array(z.string()),
+  cwd: z.string(),
+  reason: z.string(),
+});
 
 /** Maximum allowed request payload size (1 MiB). */
 const MAX_REQUEST_BYTES = 1024 * 1024;
@@ -16,7 +25,7 @@ export function createSocketServer(
   handler: SocketHandler,
 ): { sockPath: string; close: () => void } {
   const dir = `${process.env.TMPDIR ?? "/tmp"}/op-remote`;
-  mkdirSync(dir, { recursive: true });
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
 
   const sockPath = `${dir}/${randomUUID()}.sock`;
 
@@ -73,7 +82,7 @@ function handleConnection(conn: NetSocket, tokens: TokenStore, handler: SocketHa
     responded = true;
     try {
       const raw = Buffer.concat(chunks).toString("utf-8");
-      const req = JSON.parse(raw) as SocketRequest;
+      const req: SocketRequest = socketRequestSchema.parse(JSON.parse(raw));
 
       // Atomically reserve the token (prevents concurrent use).
       if (!tokens.reserve(req.token)) {

@@ -180,7 +180,7 @@ export async function requestRunApproval(
     secretNames: string[];
   },
 ): Promise<ApprovalResult> {
-  const nonce = crypto.randomUUID().slice(0, 8);
+  const nonce = crypto.randomUUID();
   const secretList = opts.secretNames.map((s) => `  - ${s}`).join("\n");
   const text = [
     "\u{1F511} Secret access request",
@@ -214,7 +214,7 @@ export async function requestRunApproval(
 }
 
 export async function requestResumeApproval(config: TelegramConfig): Promise<ApprovalResult> {
-  const nonce = crypto.randomUUID().slice(0, 8);
+  const nonce = crypto.randomUUID();
   const text = ["\u{1F504} Resume request", "", "Agent is requesting to resume the session."].join(
     "\n",
   );

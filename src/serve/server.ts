@@ -145,7 +145,11 @@ export async function startServer(opts: { envFile?: string } = {}): Promise<void
       // Return secrets from process.env (loaded at startup).
       const env: Record<string, string> = {};
       for (const { name } of req.envVars) {
-        env[name] = process.env[name] ?? "";
+        const value = process.env[name];
+        if (value === undefined) {
+          return { status: "rejected", reason: `env var not available: ${name}` };
+        }
+        env[name] = value;
       }
 
       return { status: "approved", env };
