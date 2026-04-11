@@ -1,6 +1,6 @@
 {
   "name": "op-remote",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Remote 1Password secret access with Telegram approval for AI agents",
   "author": {
     "name": "Wyatt Johnson"
@@ -35,7 +35,7 @@
     "op-remote": {
       "command": "npx",
       "args": [
-        "@wyattjoh/op-remote@0.5.2",
+        "@wyattjoh/op-remote@0.5.3",
         "serve",
         "--env-file=.env.tpl"
       ],
