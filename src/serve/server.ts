@@ -45,8 +45,12 @@ function readConfig(): ServerConfig {
  * works for projects without a .env.tpl.
  */
 async function loadEnvFile(envFile: string): Promise<void> {
-  const file = Bun.file(envFile);
-  if (!(await file.exists())) return;
+  const { access } = await import("node:fs/promises");
+  try {
+    await access(envFile);
+  } catch {
+    return;
+  }
 
   const { readEnvFile } = await import("../run/envfile.ts");
   const { secretVars } = await readEnvFile(envFile);

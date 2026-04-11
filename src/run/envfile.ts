@@ -44,6 +44,7 @@ export function parseEnvFile(content: string): ParsedEnvFile {
 }
 
 export async function readEnvFile(path: string): Promise<ParsedEnvFile> {
-  const content = await Bun.file(path).text();
+  const { readFile } = await import("node:fs/promises");
+  const content = await readFile(path, "utf-8");
   return parseEnvFile(content);
 }
