@@ -1,8 +1,8 @@
-import { spawn } from "node:child_process";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import type { SocketRequest, SocketResponse } from "../protocol.ts";
+import { readEnvFile } from "../run/envfile.ts";
 import { createSession } from "./session.ts";
 import { type SocketHandler, createSocketServer } from "./socket.ts";
 import { requestResumeApproval, requestRunApproval } from "./telegram.ts";
@@ -46,54 +46,31 @@ function readConfig(): ServerConfig {
  * works for projects without a .env.tpl.
  */
 async function loadEnvFile(envFile: string): Promise<void> {
-  const { access } = await import("node:fs/promises");
-  try {
-    await access(envFile);
-  } catch {
-    return;
-  }
+  if (!(await Bun.file(envFile).exists())) return;
 
-  const { readEnvFile } = await import("../run/envfile.ts");
   const { secretVars } = await readEnvFile(envFile);
   if (secretVars.length === 0) return;
 
   const names = new Set(secretVars.map((v) => v.name));
 
   // Resolve all op:// references in one shot via `op run -- env`.
-  const resolved = await new Promise<Record<string, string>>((resolve, reject) => {
-    const child = spawn("op", ["run", `--env-file=${envFile}`, "--", "env"], {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-
-    let stdout = "";
-    child.stdout.on("data", (chunk: Buffer) => {
-      stdout += chunk.toString();
-    });
-
-    child.on("close", (code) => {
-      if (code !== 0) {
-        reject(new Error(`op run failed (exit code ${code})`));
-        return;
-      }
-      const env: Record<string, string> = {};
-      for (const line of stdout.split("\n")) {
-        const idx = line.indexOf("=");
-        if (idx === -1) continue;
-        const key = line.slice(0, idx);
-        if (names.has(key)) {
-          env[key] = line.slice(idx + 1);
-        }
-      }
-      resolve(env);
-    });
-
-    child.on("error", (err) => {
-      reject(new Error(`Failed to start op: ${err.message}`));
-    });
+  const proc = Bun.spawn(["op", "run", `--env-file=${envFile}`, "--", "env"], {
+    stdout: "pipe",
+    stderr: "pipe",
   });
+  const stdout = await new Response(proc.stdout).text();
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    throw new Error(`op run failed (exit code ${exitCode})`);
+  }
 
-  for (const [name, value] of Object.entries(resolved)) {
-    process.env[name] = value;
+  for (const line of stdout.split("\n")) {
+    const idx = line.indexOf("=");
+    if (idx === -1) continue;
+    const key = line.slice(0, idx);
+    if (names.has(key)) {
+      process.env[key] = line.slice(idx + 1);
+    }
   }
 }
 
@@ -150,6 +127,11 @@ export async function startServer(opts: { envFile?: string } = {}): Promise<void
     { capabilities: { logging: {} } },
   );
 
+  function textResponse(text: string, isError?: boolean) {
+    const content = [{ type: "text" as const, text }];
+    return isError ? { isError: true, content } : { content };
+  }
+
   // Tool: request_token
   mcp.registerTool(
     "request_token",
@@ -161,26 +143,14 @@ export async function startServer(opts: { envFile?: string } = {}): Promise<void
     },
     async () => {
       if (session.isStopped()) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text" as const,
-              text: "Session has been stopped by the user. Stop what you are doing and wait for further instructions from the user.",
-            },
-          ],
-        };
+        return textResponse(
+          "Session has been stopped by the user. Stop what you are doing and wait for further instructions from the user.",
+          true,
+        );
       }
 
       const token = tokens.create();
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify({ token, sock: sockPath }),
-          },
-        ],
-      };
+      return textResponse(JSON.stringify({ token, sock: sockPath }));
     },
   );
 
@@ -195,25 +165,14 @@ export async function startServer(opts: { envFile?: string } = {}): Promise<void
     },
     async () => {
       const result = await session.tryResume();
-      if (result.kind === "not-stopped") {
-        return {
-          content: [{ type: "text" as const, text: "Session is not stopped." }],
-        };
+      switch (result.kind) {
+        case "not-stopped":
+          return textResponse("Session is not stopped.");
+        case "resumed":
+          return textResponse("Session resumed.");
+        default:
+          return textResponse(`Resume denied: ${result.reason}`, true);
       }
-      if (result.kind === "resumed") {
-        return {
-          content: [{ type: "text" as const, text: "Session resumed." }],
-        };
-      }
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text" as const,
-            text: `Resume denied: ${result.reason}`,
-          },
-        ],
-      };
     },
   );
 
@@ -228,14 +187,7 @@ export async function startServer(opts: { envFile?: string } = {}): Promise<void
     },
     async () => {
       session.disableAutoApprove();
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "Auto-approve disabled. Future requests will require Telegram approval.",
-          },
-        ],
-      };
+      return textResponse("Auto-approve disabled. Future requests will require Telegram approval.");
     },
   );
 
