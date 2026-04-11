@@ -6,16 +6,21 @@ runtime without exposing them in plaintext config files or conversation context.
 
 ## How it works
 
-1. The **MCP server** (`op-remote serve`) runs as a stdio MCP server, loaded
-   with the real secrets via `op run`. It exposes a `request_token` tool that
-   returns a one-time token and Unix socket path.
-2. The **CLI** (`op-remote run`) is called by the agent with the token, a
-   `.env.tpl` file containing `op://` references, and the command to run. It
-   connects to the MCP server's Unix socket to request the resolved secrets.
-3. The MCP server sends a **Telegram approval request** with inline buttons
+1. At startup, the **MCP server** (`op-remote serve --env-file=.env.tpl`)
+   reads the project's `.env.tpl` and uses `op run` to resolve every `op://`
+   reference into its own process environment. This happens once, while the
+   user is present to authenticate with 1Password. **No `.env.tpl` means no
+   secrets are loaded and the pipeline is inert**, so each project that needs
+   remote secret access must provide one.
+2. The server exposes a `request_token` MCP tool that returns a one-time token
+   and Unix socket path.
+3. The **CLI** (`op-remote run`) is called by the agent with the token, the
+   same `.env.tpl`, and the command to run. It connects to the MCP server's
+   Unix socket to request the secrets named in the file.
+4. The MCP server sends a **Telegram approval request** with inline buttons
    (Approve, Reject, Auto-Approve, Stop). The approver can also reply with a
    reason when rejecting.
-4. On approval, secrets are injected into the subprocess environment. All
+5. On approval, secrets are injected into the subprocess environment. All
    stdout/stderr output is **masked** to prevent secret leakage.
 
 ## Install
@@ -29,7 +34,11 @@ Install via the plugin marketplace:
 /plugin install op-remote@wyattjoh-marketplace
 ```
 
-Then configure the required environment variables in your MCP server settings.
+Then configure the Telegram credentials via the plugin's user config. The
+plugin's MCP config is pre-wired with `--env-file=.env.tpl`, so each project
+that uses op-remote only needs a `.env.tpl` at its root listing the project's
+`op://` secret references (see [Project `.env.tpl`](#project-envtpl-required)
+below).
 
 ### npm (global)
 
@@ -54,59 +63,75 @@ bun install -g @wyattjoh/op-remote
 | `REMOTE_OP_TELEGRAM_APPROVER_IDS` | No       | Comma-separated Telegram user IDs allowed to approve/reject (all users if unset) |
 | `REMOTE_OP_TIMEOUT`               | No       | Approval timeout in seconds (default: `120`)                                     |
 
-The MCP server also needs the actual secrets loaded into its environment (the
-ones referenced by `op://` URIs in your `.env.tpl` files). Use `op run` to
-inject them.
+When installed as the Claude Code plugin, the Telegram variables above are
+supplied via the plugin's user config and do not need to be set manually.
 
-### Env file format (`.env.tpl`)
+### Project `.env.tpl` (required)
 
-The CLI reads a `.env.tpl` file that distinguishes secrets from plain config:
+Every project that wants remote secret access must have a `.env.tpl` file at
+its root. The plugin's MCP config passes `--env-file=.env.tpl` to
+`op-remote serve`, so at server startup the file is read and all `op://`
+references are resolved via `op run` into the server's process environment.
+The resolved secrets are what later requests from `op-remote run` draw from.
 
 ```
 # Plain values are passed through directly
 DATABASE_HOST=localhost
 DATABASE_PORT=5432
 
-# op:// references are resolved via the MCP server
+# op:// references are resolved once at server startup
 DATABASE_PASSWORD=op://Development/my-app-db/password
 API_KEY=op://Development/my-app-api/credential
 ```
 
-Lines with `op://` values become secret requests. All other key-value pairs are
-injected as plain environment variables. Comments and blank lines are ignored.
+The same file format is consumed in two places:
+
+- **MCP server startup** reads it to resolve `op://` references up front
+  (requires an interactive `op` session, so this happens while the user is
+  present).
+- **`op-remote run`** reads it to know which variable names to request from
+  the server and which plain values to pass through directly.
+
+Lines with `op://` values become secret requests. All other key-value pairs
+are injected as plain environment variables. Comments and blank lines are
+ignored. If `.env.tpl` is missing, the server starts normally but has no
+secrets to serve, so no `op-remote run` invocation will succeed.
 
 ## MCP client configuration
 
-### Claude Code (`.mcp.json`)
-
-Add to your project's `.mcp.json` or `~/.claude/.mcp.json`:
+If you are not using the Claude Code plugin, add the server to your
+`.mcp.json` or `~/.claude/.mcp.json`. Pass `--env-file=.env.tpl` so the server
+loads the project's secrets at startup:
 
 ```json
 {
   "mcpServers": {
     "op-remote": {
       "command": "op-remote",
-      "args": ["serve"],
+      "args": ["serve", "--env-file=.env.tpl"],
       "env": {
         "REMOTE_OP_TELEGRAM_BOT_TOKEN": "your-bot-token",
-        "REMOTE_OP_TELEGRAM_CHAT_ID": "your-chat-id",
-        "DATABASE_PASSWORD": "the-actual-secret-value"
+        "REMOTE_OP_TELEGRAM_CHAT_ID": "your-chat-id"
       }
     }
   }
 }
 ```
 
-### Using 1Password CLI (recommended)
+The server will shell out to `op run --env-file=.env.tpl` internally to
+resolve the project's `op://` references, so `op` must be installed and
+authenticated at server start.
 
-Use `op run` so secrets never touch config files:
+To keep the Telegram credentials out of plaintext config as well, wrap the
+whole command in `op run` and point the Telegram env vars at 1Password
+references:
 
 ```json
 {
   "mcpServers": {
     "op-remote": {
       "command": "op",
-      "args": ["run", "--env-file=.env.tpl", "--", "op-remote", "serve"],
+      "args": ["run", "--no-masking", "--", "op-remote", "serve", "--env-file=.env.tpl"],
       "env": {
         "REMOTE_OP_TELEGRAM_BOT_TOKEN": "op://Development/op-remote-telegram/bot-token",
         "REMOTE_OP_TELEGRAM_CHAT_ID": "op://Development/op-remote-telegram/chat-id"
@@ -116,20 +141,12 @@ Use `op run` so secrets never touch config files:
 }
 ```
 
-### Claude Code Plugin
-
-op-remote is also available as a Claude Code plugin:
-
-```json
-{
-  "mcpServers": {
-    "op-remote": {
-      "command": "npx",
-      "args": ["@wyattjoh/op-remote", "serve"]
-    }
-  }
-}
-```
+Here the outer `op run` resolves the Telegram references in `env` before
+spawning `op-remote serve`, and the server then performs its own
+`op run --env-file=.env.tpl` pass to load the project's secrets at startup.
+`--no-masking` is required because the MCP server speaks JSON-RPC over stdio,
+and `op run`'s default stdout masking would corrupt that stream if any
+resolved secret happened to match a protocol byte sequence.
 
 ## Usage
 
