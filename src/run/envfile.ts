@@ -1,7 +1,5 @@
 import type { SecretVar } from "../protocol.ts";
 
-export type { SecretVar };
-
 export interface ParsedEnvFile {
   /** Env vars whose values are op:// references. */
   secretVars: SecretVar[];
@@ -44,7 +42,6 @@ export function parseEnvFile(content: string): ParsedEnvFile {
 }
 
 export async function readEnvFile(path: string): Promise<ParsedEnvFile> {
-  const { readFile } = await import("node:fs/promises");
-  const content = await readFile(path, "utf-8");
+  const content = await Bun.file(path).text();
   return parseEnvFile(content);
 }

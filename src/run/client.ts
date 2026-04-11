@@ -6,12 +6,6 @@ export function sendRequest(sockPath: string, req: SocketRequest): Promise<Socke
     const chunks: Buffer[] = [];
     let settled = false;
 
-    const settle = (fn: () => void) => {
-      if (settled) return;
-      settled = true;
-      fn();
-    };
-
     const socket = createConnection({ path: sockPath });
 
     socket.on("connect", () => {
@@ -23,28 +17,28 @@ export function sendRequest(sockPath: string, req: SocketRequest): Promise<Socke
     });
 
     const finish = () => {
-      settle(() => {
-        try {
-          const raw = Buffer.concat(chunks).toString("utf-8");
-          if (raw.length === 0) {
-            reject(new Error("Server closed connection without sending a response"));
-            return;
-          }
-          const res = JSON.parse(raw) as SocketResponse;
-          resolve(res);
-        } catch (err) {
-          reject(new Error(`Failed to parse server response: ${err}`));
-        }
-      });
+      if (settled) return;
+      settled = true;
+      const raw = Buffer.concat(chunks).toString("utf-8");
+      if (raw.length === 0) {
+        reject(new Error("Server closed connection without sending a response"));
+        return;
+      }
+      try {
+        resolve(JSON.parse(raw) as SocketResponse);
+      } catch (err) {
+        reject(new Error(`Failed to parse server response: ${err}`));
+      }
     };
 
+    // `end` and `close` both fire on normal shutdown; `finish` is idempotent.
     socket.on("end", finish);
     socket.on("close", finish);
 
     socket.on("error", (err: Error) => {
-      settle(() => {
-        reject(new Error(`Socket connection error: ${err.message}`));
-      });
+      if (settled) return;
+      settled = true;
+      reject(new Error(`Socket connection error: ${err.message}`));
     });
   });
 }

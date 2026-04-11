@@ -12,11 +12,10 @@ interface RunArgs {
   command: string[];
 }
 
+const FLAG_KEYS = ["--token=", "--sock=", "--env-file=", "--reason="] as const;
+
 export function parseRunArgs(argv: string[]): RunArgs {
-  let token: string | undefined;
-  let sock: string | undefined;
-  let envFile: string | undefined;
-  let reason: string | undefined;
+  const flags: Record<string, string> = {};
   let command: string[] | undefined;
 
   const args = argv.slice(3); // skip: bun, cli.ts, "run"
@@ -28,19 +27,18 @@ export function parseRunArgs(argv: string[]): RunArgs {
       break;
     }
 
-    if (arg.startsWith("--token=")) {
-      token = arg.slice(8);
-    } else if (arg.startsWith("--sock=")) {
-      sock = arg.slice(7);
-    } else if (arg.startsWith("--env-file=")) {
-      envFile = arg.slice(11);
-    } else if (arg.startsWith("--reason=")) {
-      reason = arg.slice(9);
-    } else {
+    const match = FLAG_KEYS.find((key) => arg.startsWith(key));
+    if (!match) {
       console.error(`Unknown flag: ${arg}`);
       process.exit(EXIT_PROTOCOL_ERROR);
     }
+    flags[match] = arg.slice(match.length);
   }
+
+  const token = flags["--token="];
+  const sock = flags["--sock="];
+  const envFile = flags["--env-file="];
+  const reason = flags["--reason="];
 
   if (!token || !sock || !envFile || !reason || !command?.length) {
     console.error(
